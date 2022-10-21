@@ -271,7 +271,7 @@ class FairseqTask(object):
             not disable_iterator_cache
             and not update_epoch_batch_itr
             and self.can_reuse_epoch_itr(dataset)
-        )
+        )  #True
         if can_reuse_epoch_itr and dataset in self.dataset_to_epoch_iter:
             logger.debug("reusing EpochBatchIterator for epoch {}".format(epoch))
             return self.dataset_to_epoch_iter[dataset]
@@ -283,24 +283,24 @@ class FairseqTask(object):
 
         # get indices ordered by example size
         with data_utils.numpy_seed(seed):
-            indices = dataset.ordered_indices()
+            indices = dataset.ordered_indices() #[280531,] ??   #测了一下 如果长度list是[100,44,55,8,300,9200] 输出[5 4 0 2 1 3] 按长度排序 输出index
 
         # filter examples that are too large
         if max_positions is not None:
-            indices = self.filter_indices_by_size(
+            indices = self.filter_indices_by_size(  #原样返回
                 indices, dataset, max_positions, ignore_invalid_inputs
             )
 
         # create mini-batches with given size constraints
-        batch_sampler = dataset.batch_by_size(
+        batch_sampler = dataset.batch_by_size(    # list: 44462 ndarrray:(5,)
             indices,
             max_tokens=max_tokens,
             max_sentences=max_sentences,
             required_batch_size_multiple=required_batch_size_multiple,
         )
 
-        reuse_dataloader = getattr(self.cfg, "reuse_dataloader", True)
-        persistent_workers = getattr(self.cfg, "persistent_workers", False)
+        reuse_dataloader = getattr(self.cfg, "reuse_dataloader", True)  #true
+        persistent_workers = getattr(self.cfg, "persistent_workers", False)  #flase
 
         # return a reusable, sharded iterator
         epoch_iter = iterators.EpochBatchIterator(
@@ -338,7 +338,7 @@ class FairseqTask(object):
         from fairseq import models, quantization_utils
 
         model = models.build_model(cfg, self, from_checkpoint)
-        model = quantization_utils.quantize_model_scalar(model, cfg)
+        model = quantization_utils.quantize_model_scalar(model, cfg)  #返回的原模型
         return model
 
     def build_criterion(self, cfg: DictConfig):
@@ -514,10 +514,10 @@ class FairseqTask(object):
         model.set_num_updates(update_num)
         with torch.autograd.profiler.record_function("forward"):
             with torch.cuda.amp.autocast(enabled=(isinstance(optimizer, AMPOptimizer))):
-                loss, sample_size, logging_output = criterion(model, sample)
-        if ignore_grad:
+                loss, sample_size, logging_output = criterion(model, sample)   #！
+        if ignore_grad:  #不做
             loss *= 0
-        with torch.autograd.profiler.record_function("backward"):
+        with torch.autograd.profiler.record_function("backward"):  #将损失loss 向输入侧进行反向传播，同时对于需要进行梯度计算的所有变量  (requires_grad=True)，计算梯度  ，并将其累积到x.grad中备用，
             optimizer.backward(loss)
         return loss, sample_size, logging_output
 

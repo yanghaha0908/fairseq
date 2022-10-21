@@ -46,9 +46,9 @@ class HubertCriterion(FairseqCriterion):
         log_keys=None,
     ):
         super().__init__(task)
-        self.pred_masked_weight = pred_masked_weight
-        self.pred_nomask_weight = pred_nomask_weight
-        self.loss_weights = loss_weights
+        self.pred_masked_weight = pred_masked_weight  #1
+        self.pred_nomask_weight = pred_nomask_weight  #0
+        self.loss_weights = loss_weights  #[10.0]
         self.log_keys = [] if log_keys is None else log_keys
 
     def forward(self, model, sample, reduce=True, log_pred=False):
@@ -58,23 +58,23 @@ class HubertCriterion(FairseqCriterion):
         2) the sample size, which is used as the denominator for the gradient
         3) logging outputs to display while training
         """
-        net_output = model(target_list=sample["target_list"], **sample["net_input"])
+        net_output = model(target_list=sample["target_list"], **sample["net_input"]) #logit_m_list 和 logit_u_list
         loss = 0.0
         sample_size = 0
         logging_output = {}
         reduction = "sum" if reduce else "none"
 
         loss_m_list = []
-        logp_m_list = model.get_logits(net_output, True)
-        targ_m_list = model.get_targets(net_output, True)
+        logp_m_list = model.get_logits(net_output, True) #[(1936,505)]
+        targ_m_list = model.get_targets(net_output, True) ##(1936,) 全0  scalar的值则是真实类别的index!! 之前存的时候y都是存在第0位 看那个网页 真神奇
         assert self.pred_masked_weight == 0 or len(logp_m_list) > 0
         for i, (logp_m, targ_m) in enumerate(zip(logp_m_list, targ_m_list)):
             loss_m = F.cross_entropy(logp_m, targ_m, reduction=reduction)
             loss_m_list.append(loss_m)
-            logging_output[f"loss_m_{i}"] = loss_m.detach().item()
+            logging_output[f"loss_m_{i}"] = loss_m.detach().item()  #{'loss_m_0': 12147.861328125}
         if self.pred_masked_weight > 0:
-            loss += self.pred_masked_weight * sum(loss_m_list)
-            sample_size += targ_m_list[0].numel()
+            loss += self.pred_masked_weight * sum(loss_m_list)  #一个batch的m loss
+            sample_size += targ_m_list[0].numel()  #1936
 
         loss_u_list = []
         logp_u_list = model.get_logits(net_output, False)
@@ -90,18 +90,18 @@ class HubertCriterion(FairseqCriterion):
 
         if self.loss_weights is not None:
             assert hasattr(model, "get_extra_losses")
-            extra_losses, names = model.get_extra_losses(net_output)
-            if torch.is_tensor(extra_losses):
+            extra_losses, names = model.get_extra_losses(net_output) #feature_pen
+            if torch.is_tensor(extra_losses): #x
                 extra_losses = [extra_losses]
                 names = [names]
-            if len(self.loss_weights) == 1 and len(extra_losses) != 1:
+            if len(self.loss_weights) == 1 and len(extra_losses) != 1: #x
                 self.loss_weights = [self.loss_weights[0]] * len(extra_losses)
             assert len(extra_losses) == len(
                 self.loss_weights
             ), f"{len(extra_losses)}, {len(self.loss_weights)}"
-            for p, n, coef in zip(extra_losses, names, self.loss_weights):
+            for p, n, coef in zip(extra_losses, names, self.loss_weights): #p:0.2904, n='features_pen',coef=10.0
                 if coef != 0 and p is not None:
-                    p = coef * p.float() * sample_size
+                    p = coef * p.float() * sample_size    #1936
                     loss += p
                     logging_output[f"loss_{n}"] = p.item()
 
@@ -113,7 +113,7 @@ class HubertCriterion(FairseqCriterion):
             **logging_output,
         }
 
-        for lk in self.log_keys:
+        for lk in self.log_keys:  #x
             if lk in net_output:
                 logging_output[lk] = float((net_output[lk]))
 
@@ -122,21 +122,21 @@ class HubertCriterion(FairseqCriterion):
                 return 0, 0
             else:
                 assert logits.dim() > 1, logits.shape
-                max = logits.argmax(-1) == 0
-                min = logits.argmin(-1) == 0
+                max = logits.argmax(-1) == 0  #(1936,bool)   ( logits.argmax(-1) 是[1936] ，所以是在判断 相似度最大的项是不是和第0项一样，以此来判断是不是选对了，如果对了 那个sample赋值true   #有两个是true
+                min = logits.argmin(-1) == 0 #(1936,)
                 both = max & min
-                corr = max.long().sum().item() - both.long().sum().item()
-                count = max.numel()
+                corr = max.long().sum().item() - both.long().sum().item() #2 说明1936个time steps中只分类对了2个  max=min 所有项的值都一样也不算分对
+                count = max.numel() #1936
                 return corr, count
 
         with torch.no_grad():
             for i, logp_m in enumerate(logp_m_list):
-                corr_m, count_m = compute_correct(logp_m)
+                corr_m, count_m = compute_correct(logp_m)  #2，1936  1936个time steps中只分类对了2个
                 logging_output[f"correct_m_{i}"] = corr_m
                 logging_output[f"count_m_{i}"] = count_m
 
             for i, logp_u in enumerate(logp_u_list):
-                corr_u, count_u = compute_correct(logp_u)
+                corr_u, count_u = compute_correct(logp_u)  #5，1880
                 logging_output[f"correct_u_{i}"] = corr_u
                 logging_output[f"count_u_{i}"] = count_u
 

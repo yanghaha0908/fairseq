@@ -249,8 +249,8 @@ class HubertModel(BaseFairseqModel):
         super().__init__()
         logger.info(f"HubertModel Config: {cfg}")
 
-        feature_enc_layers = eval(cfg.conv_feature_layers)  # noqa
-        self.embed = feature_enc_layers[-1][0]
+        feature_enc_layers = eval(cfg.conv_feature_layers)   #[(512, 10, 5), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 2, 2), (512, 2, 2)]  # noqa
+        self.embed = feature_enc_layers[-1][0] #512
 
         self.feature_extractor = ConvFeatureExtractionModel(
             conv_layers=feature_enc_layers,
@@ -258,20 +258,20 @@ class HubertModel(BaseFairseqModel):
             mode=cfg.extractor_mode,
             conv_bias=cfg.conv_bias,
         )
-        feature_ds_rate = np.prod([s for _, _, s in feature_enc_layers])
-        self.feat2tar_ratio = cfg.label_rate * feature_ds_rate / task_cfg.sample_rate
+        feature_ds_rate = np.prod([s for _, _, s in feature_enc_layers])  #320?
+        self.feat2tar_ratio = cfg.label_rate * feature_ds_rate / task_cfg.sample_rate  #
 
-        self.post_extract_proj = (
+        self.post_extract_proj = (   #Linear(in_features=512, out_features=768, bias=True)
             nn.Linear(self.embed, cfg.encoder_embed_dim)
             if self.embed != cfg.encoder_embed_dim
             else None
         )
 
-        self.mask_prob = cfg.mask_prob
-        self.mask_selection = cfg.mask_selection
-        self.mask_other = cfg.mask_other
-        self.mask_length = cfg.mask_length
-        self.no_mask_overlap = cfg.no_mask_overlap
+        self.mask_prob = cfg.mask_prob  #0.8
+        self.mask_selection = cfg.mask_selection #static
+        self.mask_other = cfg.mask_other #0
+        self.mask_length = cfg.mask_length #10
+        self.no_mask_overlap = cfg.no_mask_overlap #false
         self.mask_min_space = cfg.mask_min_space
 
         self.mask_channel_prob = cfg.mask_channel_prob
@@ -289,7 +289,7 @@ class HubertModel(BaseFairseqModel):
         self.skip_masked = cfg.skip_masked
         self.skip_nomask = cfg.skip_nomask
 
-        final_dim = cfg.final_dim if cfg.final_dim > 0 else cfg.encoder_embed_dim
+        final_dim = cfg.final_dim if cfg.final_dim > 0 else cfg.encoder_embed_dim  #256
 
         self.mask_emb = nn.Parameter(
             torch.FloatTensor(cfg.encoder_embed_dim).uniform_()
@@ -304,10 +304,10 @@ class HubertModel(BaseFairseqModel):
                 nn.Linear(final_dim, final_dim * 2), nn.GLU()
             )
 
-        self.untie_final_proj = cfg.untie_final_proj
+        self.untie_final_proj = cfg.untie_final_proj #True
         if self.untie_final_proj:
             self.final_proj = nn.Linear(
-                cfg.encoder_embed_dim, final_dim * len(dictionaries)
+                cfg.encoder_embed_dim, final_dim * len(dictionaries)  #768, 256*1
             )
         else:
             self.final_proj = nn.Linear(cfg.encoder_embed_dim, final_dim)
@@ -316,11 +316,11 @@ class HubertModel(BaseFairseqModel):
         if any([d is None for d in dictionaries]):
             logger.info("cannot find dictionary. assume will be used for fine-tuning")
         else:
-            self.num_classes = [len(d) for d in dictionaries]
+            self.num_classes = [len(d) for d in dictionaries] #【504】
             self.label_embs_concat = nn.Parameter(
-                torch.FloatTensor(sum(self.num_classes), final_dim)
+                torch.FloatTensor(sum(self.num_classes), final_dim)  #(504,256) 全0
             )
-            nn.init.uniform_(self.label_embs_concat)
+            nn.init.uniform_(self.label_embs_concat)  #使用从均匀分布[0,1]中提取的值填充输入张量。
 
     def upgrade_state_dict_named(self, state_dict, name):
         """Upgrade a (possibly old) state dict for new versions of fairseq."""
@@ -336,7 +336,7 @@ class HubertModel(BaseFairseqModel):
         return model
 
     def apply_mask(self, x, padding_mask, target_list):
-        B, T, C = x.shape
+        B, T, C = x.shape   #8 477 768   #padding_mask (8,477)
         if self.mask_prob > 0:
             mask_indices = compute_mask_indices(
                 (B, T),
@@ -348,13 +348,13 @@ class HubertModel(BaseFairseqModel):
                 min_masks=2,
                 no_overlap=self.no_mask_overlap,
                 min_space=self.mask_min_space,
-            )
+            )   #（8，477）  需要mask的地方设为true
             mask_indices = torch.from_numpy(mask_indices).to(x.device)
             x[mask_indices] = self.mask_emb
         else:
             mask_indices = None
 
-        if self.mask_channel_prob > 0:
+        if self.mask_channel_prob > 0:   #x
             mask_channel_indices = compute_mask_indices(
                 (B, C),
                 None,
@@ -375,21 +375,21 @@ class HubertModel(BaseFairseqModel):
 
         return x, mask_indices
 
-    def compute_nce(self, x, pos, negs):
-        neg_is_pos = (pos == negs).all(-1)
-        pos = pos.unsqueeze(0)
-        targets = torch.cat([pos, negs], dim=0)
+    def compute_nce(self, x, pos, negs):  #x(1936,256) pos就是label y:(1936,256) ，negs是那个label_embs扩展后的（504，1936，256） 看一下论文的p计算就懂了为啥要复制1936份
+        neg_is_pos = (pos == negs).all(-1) #（504，1936） label对应的位置是true 其余是false  # neg_is_pos.sum()=1936 (pos==negs).shape torch.Size([504, 1936, 256])
+        pos = pos.unsqueeze(0) #（1，1936，256）
+        targets = torch.cat([pos, negs], dim=0)  #（505，1936，256）
 
-        logits = torch.cosine_similarity(x.float(), targets.float(), dim=-1).type_as(x)
-        logits /= self.logit_temp
+        logits = torch.cosine_similarity(x.float(), targets.float(), dim=-1).type_as(x)  #（505，1936）  505个和x算相似度
+        logits /= self.logit_temp  # self.logit_temp=0.1
         if neg_is_pos.any():
-            logits[1:][neg_is_pos] = float("-inf")
-        logits = logits.transpose(0, 1)  # (num_x, num_cls+1)
+            logits[1:][neg_is_pos] = float("-inf")  #把label对应位置的cos sim/tao 设为-inf  exp（-inf）=0 不加上它？
+        logits = logits.transpose(0, 1) #(1936,505)   # (num_x, num_cls+1)
         return logits
 
     def forward_features(self, source: torch.Tensor) -> torch.Tensor:
         if self.feature_grad_mult > 0:
-            features = self.feature_extractor(source)
+            features = self.feature_extractor(source)  #（8，512，477）
             if self.feature_grad_mult != 1.0:
                 features = GradMultiply.apply(features, self.feature_grad_mult)
         else:
@@ -403,12 +403,12 @@ class HubertModel(BaseFairseqModel):
         target_list: List[torch.Tensor],
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         # Trim features to ensure labels exist and then get aligned labels
-        feat_tsz = features.size(2)
-        targ_tsz = min([t.size(1) for t in target_list])
-        if self.feat2tar_ratio * feat_tsz > targ_tsz:
+        feat_tsz = features.size(2)   #477 # features （8，512，477）
+        targ_tsz = min([t.size(1) for t in target_list])  #477 # target_list {list:1}
+        if self.feat2tar_ratio * feat_tsz > targ_tsz: #x
             feat_tsz = int(targ_tsz / self.feat2tar_ratio)
             features = features[..., :feat_tsz]
-        target_inds = torch.arange(feat_tsz).float() * self.feat2tar_ratio
+        target_inds = torch.arange(feat_tsz).float() * self.feat2tar_ratio    #target_inds (477,) [0,1,...,476] self.feat2tar_ratio:1
         target_list = [t[:, target_inds.long()] for t in target_list]
         return features, target_list
 
@@ -417,11 +417,11 @@ class HubertModel(BaseFairseqModel):
         features: torch.Tensor,
         padding_mask: torch.Tensor,
     ) -> torch.Tensor:
-        extra = padding_mask.size(1) % features.size(1)
+        extra = padding_mask.size(1) % features.size(1) #320  #padding_mask是（8，152960）  需要按照label的个数除 所以算余数 删掉
         if extra > 0:
-            padding_mask = padding_mask[:, :-extra]
-        padding_mask = padding_mask.view(padding_mask.size(0), features.size(1), -1)
-        padding_mask = padding_mask.all(-1)
+            padding_mask = padding_mask[:, :-extra] #短了 (8,152640)
+        padding_mask = padding_mask.view(padding_mask.size(0), features.size(1), -1)  #(8,477,320)
+        padding_mask = padding_mask.all(-1) #（8,477) 全false
         return padding_mask
 
     def forward(
@@ -434,27 +434,27 @@ class HubertModel(BaseFairseqModel):
         output_layer: Optional[int] = None,
     ) -> Dict[str, torch.Tensor]:
         """output layer is 1-based"""
-        features = self.forward_features(source)
+        features = self.forward_features(source)   #就是过 ConvFeatureExtractionModel （8，512，477） #source (8,152960)
         if target_list is not None:
-            features, target_list = self.forward_targets(features, target_list)
+            features, target_list = self.forward_targets(features, target_list) #features 无变化 target_list（8，477）
 
-        features_pen = features.float().pow(2).mean()
+        features_pen = features.float().pow(2).mean()  #所有项平方取均值 #0.2904
 
-        features = features.transpose(1, 2)
+        features = features.transpose(1, 2)  #（8，477，512）
         features = self.layer_norm(features)
         unmasked_features = features.clone()
 
         if padding_mask is not None:
-            padding_mask = self.forward_padding_mask(features, padding_mask)
+            padding_mask = self.forward_padding_mask(features, padding_mask)  #（8,477) 全false ?
 
         if self.post_extract_proj is not None:
-            features = self.post_extract_proj(features)
+            features = self.post_extract_proj(features)   #Linear(in_features=512, out_features=768, bias=True)  （8，477，768）
 
         features = self.dropout_input(features)
         unmasked_features = self.dropout_features(unmasked_features)
 
         if mask:
-            x, mask_indices = self.apply_mask(features, padding_mask, target_list)
+            x, mask_indices = self.apply_mask(features, padding_mask, target_list) #x mask之后的
         else:
             x = features
             mask_indices = None
@@ -468,36 +468,36 @@ class HubertModel(BaseFairseqModel):
             x,
             padding_mask=padding_mask,
             layer=None if output_layer is None else output_layer - 1,
-        )
+        )  #transformoer encoder
 
         if features_only:
             return {"x": x, "padding_mask": padding_mask, "features": features}
 
-        def compute_pred(proj_x, target, label_embs):
+        def compute_pred(proj_x, target, label_embs): #proj_x:(1936,256), target(1936,) 0~500 label_embs:(504,256)
             # compute logits for the i-th label set
-            y = torch.index_select(label_embs, 0, target.long())
-            negs = label_embs.unsqueeze(1).expand(-1, proj_x.size(0), -1)
-            if self.target_glu:
+            y = torch.index_select(label_embs, 0, target.long())  #target对应到 label_embds  是哪个取哪个 （1936，256）
+            negs = label_embs.unsqueeze(1).expand(-1, proj_x.size(0), -1) #（504，1936，256） 复制1936份
+            if self.target_glu:  #x
                 y = self.target_glu(y)
                 negs = self.target_glu(negs)
             # proj_x: (S, D)
             # y: (S, D)
-            # negs: (Neg, S, D)
+            # negs: (Neg, S, D)  负样本！
             return self.compute_nce(proj_x, y, negs)
 
-        label_embs_list = self.label_embs_concat.split(self.num_classes, 0)
+        label_embs_list = self.label_embs_concat.split(self.num_classes, 0) #0: (504,256)  self.num_classes[504]
 
         if not self.skip_masked:
-            masked_indices = torch.logical_and(~padding_mask, mask_indices)
-            proj_x_m = self.final_proj(x[masked_indices])
+            masked_indices = torch.logical_and(~padding_mask, mask_indices)   #就是mask_indices shape是【8，477】 其中true的元素个数是1936
+            proj_x_m = self.final_proj(x[masked_indices])  #x[masked_indices].shape   torch.Size([1936, 768])  (768,256) 最终结果:(1936,256)
             if self.untie_final_proj:
-                proj_x_m_list = proj_x_m.chunk(len(target_list), dim=-1)
+                proj_x_m_list = proj_x_m.chunk(len(target_list), dim=-1) #(tuple:1) 0:(1936,256)
             else:
                 proj_x_m_list = [proj_x_m for _ in range(len(target_list))]
             logit_m_list = [
-                compute_pred(proj_x_m, t[masked_indices], label_embs_list[i])
-                for i, (proj_x_m, t) in enumerate(zip(proj_x_m_list, target_list))
-            ]
+                compute_pred(proj_x_m, t[masked_indices], label_embs_list[i])   #target_list: (8,477)  t[masked_indices].shape[1936] 把mask的位置的label挑出来
+                for i, (proj_x_m, t) in enumerate(zip(proj_x_m_list, target_list))  #i=0
+            ]  #list:1   (1936,505)
         else:
             logit_m_list = [None for _ in target_list]
 
@@ -512,14 +512,14 @@ class HubertModel(BaseFairseqModel):
             logit_u_list = [
                 compute_pred(proj_x_u, t[nomask_indices], label_embs_list[i])
                 for i, (proj_x_u, t) in enumerate(zip(proj_x_u_list, target_list))
-            ]
+            ]  #(1880,505)
         else:
             logit_u_list = [None for _ in target_list]
 
         result = {
             "logit_m_list": logit_m_list,
             "logit_u_list": logit_u_list,
-            "padding_mask": padding_mask,
+            "padding_mask": padding_mask, #全false
             "features_pen": features_pen,
         }
         return result
@@ -552,7 +552,7 @@ class HubertModel(BaseFairseqModel):
 
     def get_targets(self, net_output, is_masked=True):
         logits_list = self.get_logits(net_output, is_masked)
-        targets_list = [x.new_zeros(x.size(0), dtype=torch.long) for x in logits_list]
+        targets_list = [x.new_zeros(x.size(0), dtype=torch.long) for x in logits_list]  #(1936,) 全0
         return targets_list
 
     def get_extra_losses(self, net_output):

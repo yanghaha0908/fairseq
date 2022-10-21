@@ -6,7 +6,6 @@
 
 import logging
 import os
-
 import hydra
 import torch
 from hydra.core.hydra_config import HydraConfig
@@ -24,7 +23,7 @@ logger = logging.getLogger("fairseq_cli.hydra_train")
 
 @hydra.main(config_path=os.path.join("..", "fairseq", "config"), config_name="config")
 def hydra_main(cfg: FairseqConfig) -> float:
-    _hydra_main(cfg)
+    _hydra_main(cfg)   #FairseqConfig 限制yaml 的数据类型
 
 
 def _hydra_main(cfg: FairseqConfig, **kwargs) -> float:
@@ -46,6 +45,12 @@ def _hydra_main(cfg: FairseqConfig, **kwargs) -> float:
             OmegaConf.to_container(cfg, resolve=True, enum_to_str=True)
         )
     OmegaConf.set_struct(cfg, True)
+
+    # if cfg['distributed_training']['distributed_rank'] == 0:  # only on main process
+        # Initialize wandb run
+    # wandb.init(project=cfg.common.wandb_project,config=cfg)
+    # print("初始化0！")
+    # print(cfg['distributed_training']['distributed_rank'])
 
     try:
         if cfg.common.profile:

@@ -326,7 +326,7 @@ class EpochBatchIterator(EpochBatchIterating):
         assert isinstance(dataset, torch.utils.data.Dataset)
         self.dataset = dataset
         self.collate_fn = collate_fn
-        self.batch_sampler = batch_sampler
+        self.batch_sampler = batch_sampler  #  # list: 44462 ndarrray:(5,)
         self._frozen_batches = (
             tuple(batch_sampler) if not callable(batch_sampler) else None
         )
@@ -369,7 +369,7 @@ class EpochBatchIterator(EpochBatchIterating):
             )
 
         if getattr(self.dataset, "supports_fetch_outside_dataloader", True):
-            return self.collate_fn([self.dataset[i] for i in self.frozen_batches[0]])
+            return self.collate_fn([self.dataset[i] for i in self.frozen_batches[0]]) #self.dataset[i]会调用_getitem_     #为啥是 0 因为是first_batch
         else:
             return "DUMMY"
 
@@ -484,7 +484,7 @@ class EpochBatchIterator(EpochBatchIterating):
         if self.reuse_dataloader and self.dataloader is not None:
             self.epoch_batch_sampler.make_batches_for_epoch(epoch, offset)
             itr = self.dataloader
-        else:
+        else: #
             self.epoch_batch_sampler = FrozenBatchSampler(
                 self.ordered_batches,
                 epoch,
@@ -508,7 +508,7 @@ class EpochBatchIterator(EpochBatchIterating):
                 timeout=self.timeout,
                 pin_memory=True,
                 persistent_workers=self.persistent_workers,
-            )
+            )  #终于看到熟悉的东西了
 
             if self.reuse_dataloader:
                 self.dataloader = itr

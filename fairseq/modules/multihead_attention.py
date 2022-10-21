@@ -534,7 +534,7 @@ class MultiheadAttention(nn.Module):
                     query, key, value, key_padding_mask, need_weights, attn_mask
                 )
 
-            else:
+            else:  #做这个
                 return F.multi_head_attention_forward(
                     query,
                     key,

@@ -868,10 +868,10 @@ class ConvFeatureExtractionModel(nn.Module):
                 return nn.Sequential(make_conv(), nn.Dropout(p=dropout), nn.GELU())
 
         in_d = 1
-        self.conv_layers = nn.ModuleList()
+        self.conv_layers = nn.ModuleList()  #[(512, 10, 5), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 2, 2), (512, 2, 2)]
         for i, cl in enumerate(conv_layers):
             assert len(cl) == 3, "invalid conv definition: " + str(cl)
-            (dim, k, stride) = cl
+            (dim, k, stride) = cl  #512,10,5
 
             self.conv_layers.append(
                 block(
@@ -889,10 +889,10 @@ class ConvFeatureExtractionModel(nn.Module):
     def forward(self, x):
 
         # BxT -> BxCxT
-        x = x.unsqueeze(1)
+        x = x.unsqueeze(1)  #原本是（19，192960） 现在（19，1，192960）
 
         for conv in self.conv_layers:
-            x = conv(x)
+            x = conv(x)   #（19，512，38591） （19，512，19295） （19，512，9647） （19，512，4823） （19，512，2411） （19，512，1205） （19，512，602）
 
         return x
 
@@ -949,16 +949,16 @@ class TransformerEncoder(nn.Module):
     def __init__(self, args: Wav2Vec2Config):
         super().__init__()
 
-        self.dropout = args.dropout
-        self.embedding_dim = args.encoder_embed_dim
-        self.required_seq_len_multiple = args.required_seq_len_multiple
+        self.dropout = args.dropout  #0.1
+        self.embedding_dim = args.encoder_embed_dim #768
+        self.required_seq_len_multiple = args.required_seq_len_multiple #?
 
-        pos_conv_depth = getattr(args, "pos_conv_depth", 1)
+        pos_conv_depth = getattr(args, "pos_conv_depth", 1) #5
         if pos_conv_depth > 1:
             num_layers = args.pos_conv_depth
-            k = max(3, args.conv_pos // num_layers)
+            k = max(3, args.conv_pos // num_layers) #95//5
 
-            def make_conv_block(e, k, g, l):
+            def make_conv_block(e, k, g, l):   #768,16,19,5
                 return nn.Sequential(
                     *[
                         nn.Sequential(
@@ -1000,7 +1000,7 @@ class TransformerEncoder(nn.Module):
         self.apply(init_bert_params)
 
     def forward(self, x, padding_mask=None, layer=None):
-        x, layer_results = self.extract_features(x, padding_mask, layer)
+        x, layer_results = self.extract_features(x, padding_mask, layer)    #(dropout_probability > self.layerdrop): 才会加到layer_results
 
         if self.layer_norm_first and layer is None:
             x = self.layer_norm(x)
@@ -1008,7 +1008,7 @@ class TransformerEncoder(nn.Module):
         return x, layer_results
 
     def extract_features(
-        self,
+        self,  #
         x,
         padding_mask=None,
         tgt_layer=None,
@@ -1016,18 +1016,18 @@ class TransformerEncoder(nn.Module):
     ):
 
         if padding_mask is not None:
-            x = index_put(x, padding_mask, 0)
-
-        x_conv = self.pos_conv(x.transpose(1, 2))
-        x_conv = x_conv.transpose(1, 2)
-        x = x + x_conv
+            x = index_put(x, padding_mask, 0)   #应该没有padding_mask
+        #x 本来是 （19，602，768）
+        x_conv = self.pos_conv(x.transpose(1, 2))  #（19，768，602）  #5一个Conv1d
+        x_conv = x_conv.transpose(1, 2)  #（19，602，768）
+        x = x + x_conv #（19，602，768）
 
         if not self.layer_norm_first:
-            x = self.layer_norm(x)
+            x = self.layer_norm(x)  #（19，602，768）
 
         # pad to the sequence length dimension
         x, pad_length = pad_to_multiple(
-            x, self.required_seq_len_multiple, dim=-2, value=0
+            x, self.required_seq_len_multiple, dim=-2, value=0  #我这个数是没变，我怀疑跟奇偶有关
         )
         if pad_length > 0 and padding_mask is None:
             padding_mask = x.new_zeros((x.size(0), x.size(1)), dtype=torch.bool)
@@ -1036,21 +1036,21 @@ class TransformerEncoder(nn.Module):
             padding_mask, _ = pad_to_multiple(
                 padding_mask, self.required_seq_len_multiple, dim=-1, value=True
             )
-        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = F.dropout(x, p=self.dropout, training=self.training)  #（19，602，768）
 
         # B x T x C -> T x B x C
-        x = x.transpose(0, 1)
+        x = x.transpose(0, 1) #（602，19，768）
 
         layer_results = []
         r = None
-        for i, layer in enumerate(self.layers):
+        for i, layer in enumerate(self.layers):#i=0-11
             dropout_probability = np.random.random() if self.layerdrop > 0 else 1
             if not self.training or (dropout_probability > self.layerdrop):
                 x, (z, lr) = layer(
                     x, self_attn_padding_mask=padding_mask, need_weights=False
-                )
-                if i >= min_layer:
-                    layer_results.append((x, z, lr))
+                )   #x,lr都是（602，19，768）   #再细看下这里
+                if i >= min_layer: #0
+                    layer_results.append((x, z, lr))   #有问题
             if i == tgt_layer:
                 r = x
                 break
@@ -1059,7 +1059,7 @@ class TransformerEncoder(nn.Module):
             x = r
 
         # T x B x C -> B x T x C
-        x = x.transpose(0, 1)
+        x = x.transpose(0, 1)  #（19，602，768）
 
         # undo paddding
         if pad_length > 0:
@@ -1074,7 +1074,7 @@ class TransformerEncoder(nn.Module):
 
             layer_results = [undo_pad(*u) for u in layer_results]
 
-        return x, layer_results
+        return x, layer_results  #最后list：11
 
     def max_positions(self):
         """Maximum output length supported by the encoder."""
@@ -1198,7 +1198,7 @@ class TransformerSentenceEncoderLayer(nn.Module):
 
         # Initialize blocks
         self.activation_fn = utils.get_activation_fn(activation_fn)
-        self.self_attn = MultiheadAttention(
+        self.self_attn = MultiheadAttention(  #调torch的库
             self.embedding_dim,
             num_attention_heads,
             dropout=attention_dropout,
@@ -1231,7 +1231,7 @@ class TransformerSentenceEncoderLayer(nn.Module):
         LayerNorm is applied either before or after the self-attention/ffn
         modules similar to the original Transformer imlementation.
         """
-        residual = x
+        residual = x    #跳到这里！
 
         if self.layer_norm_first:
             x = self.self_attn_layer_norm(x)
@@ -1256,14 +1256,14 @@ class TransformerSentenceEncoderLayer(nn.Module):
 
             x = self.dropout3(x)
             x = residual + x
-        else:
+        else:  #做这个
             x, attn = self.self_attn(
                 query=x,
                 key=x,
                 value=x,
                 key_padding_mask=self_attn_padding_mask,
                 need_weights=False,
-            )
+            )  #attn=NONE
 
             x = self.dropout1(x)
             x = residual + x
@@ -1271,9 +1271,9 @@ class TransformerSentenceEncoderLayer(nn.Module):
             x = self.self_attn_layer_norm(x)
 
             residual = x
-            x = self.activation_fn(self.fc1(x))
+            x = self.activation_fn(self.fc1(x))  #nn.Linear
             x = self.dropout2(x)
-            x = self.fc2(x)
+            x = self.fc2(x)    #nn.Linear
 
             layer_result = x
 
@@ -1281,4 +1281,4 @@ class TransformerSentenceEncoderLayer(nn.Module):
             x = residual + x
             x = self.final_layer_norm(x)
 
-        return x, (attn, layer_result)
+        return x, (attn, layer_result)  #attn=None

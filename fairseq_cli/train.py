@@ -40,6 +40,8 @@ from fairseq.logging import meters, metrics, progress_bar
 from fairseq.model_parallel.megatron_trainer import MegatronTrainer
 from fairseq.trainer import Trainer
 
+import wandb
+import os
 
 def main(cfg: FairseqConfig) -> None:
     if isinstance(cfg, argparse.Namespace):
@@ -60,7 +62,7 @@ def main(cfg: FairseqConfig) -> None:
     ), "Must specify batch size either with --max-tokens or --batch-size"
     metrics.reset()
 
-    if cfg.common.log_file is not None:
+    if cfg.common.log_file is not None:  #不做
         handler = logging.FileHandler(filename=cfg.common.log_file)
         logger.addHandler(handler)
 
@@ -69,11 +71,23 @@ def main(cfg: FairseqConfig) -> None:
 
     if distributed_utils.is_master(cfg.distributed_training):
         checkpoint_utils.verify_checkpoint_directory(cfg.checkpoint.save_dir)
+    #print(cfg['distributed_training']['distributed_rank'])  #确实分0,1,2,3!
 
     # Print args
     logger.info(cfg)
 
-    if cfg.checkpoint.write_checkpoints_asynchronously:
+    # if cfg['distributed_training']['distributed_rank'] == 0:  # only on main process
+    #     # Initialize wandb run
+    #     wandb.init(project=cfg.common.wandb_project,config=cfg)
+    #     print("初始化！")
+    #     exit(0)
+
+    #wandb.init(project="hubert",config=cfg)
+    # wandb.run.name="hubert_base"
+    # wandb.run.save()
+
+    # Train model with DDP
+    if cfg.checkpoint.write_checkpoints_asynchronously:  #不做
         try:
             import iopath  # noqa: F401
         except ImportError:
@@ -95,7 +109,7 @@ def main(cfg: FairseqConfig) -> None:
     else:
         model = task.build_model(cfg.model)
     criterion = task.build_criterion(cfg.criterion)
-    logger.info(model)
+    #logger.info(model)
     logger.info("task: {}".format(task.__class__.__name__))
     logger.info("model: {}".format(model.__class__.__name__))
     logger.info("criterion: {}".format(criterion.__class__.__name__))
@@ -127,13 +141,13 @@ def main(cfg: FairseqConfig) -> None:
     # We load the valid dataset AFTER building the model
     data_utils.raise_if_valid_subsets_unintentionally_ignored(cfg)
     if cfg.dataset.combine_valid_subsets:
-        task.load_dataset("valid", combine=True, epoch=1)
+        task.load_dataset("valid", combine=True, epoch=1)  #修改
     else:
         for valid_sub_split in cfg.dataset.valid_subset.split(","):
-            task.load_dataset(valid_sub_split, combine=False, epoch=1)
+            task.load_dataset(valid_sub_split, combine=False, epoch=1)  #这个 加载数据集，好好看一下～
 
     # (optionally) Configure quantization
-    if cfg.common.quantization_config_path is not None:
+    if cfg.common.quantization_config_path is not None:   #none
         quantizer = quantization_utils.Quantizer(
             config_path=cfg.common.quantization_config_path,
             max_epoch=cfg.optimization.max_epoch,
@@ -143,8 +157,8 @@ def main(cfg: FairseqConfig) -> None:
         quantizer = None
 
     # Build trainer
-    if cfg.common.model_parallel_size == 1:
-        trainer = Trainer(cfg, task, model, criterion, quantizer)
+    if cfg.common.model_parallel_size == 1:  #这个
+        trainer = Trainer(cfg, task, model, criterion, quantizer) #初始化
     else:
         trainer = MegatronTrainer(cfg, task, model, criterion)
     logger.info(
@@ -173,9 +187,9 @@ def main(cfg: FairseqConfig) -> None:
         xm.rendezvous("load_checkpoint")  # wait for all workers
 
     max_epoch = cfg.optimization.max_epoch or math.inf
-    lr = trainer.get_lr()
+    lr = trainer.get_lr()  #5e-6
 
-    train_meter = meters.StopwatchMeter()
+    train_meter = meters.StopwatchMeter()   #对训练计时
     train_meter.start()
     while epoch_itr.next_epoch_idx <= max_epoch:
         if lr <= cfg.optimization.stop_min_lr:
@@ -187,14 +201,14 @@ def main(cfg: FairseqConfig) -> None:
             break
 
         # train for one epoch
-        valid_losses, should_stop = train(cfg, trainer, task, epoch_itr)
+        valid_losses, should_stop = train(cfg, trainer, task, epoch_itr)  #这个
         if should_stop:
             break
 
         # only use first validation loss to update the learning rate
-        lr = trainer.lr_step(epoch_itr.epoch, valid_losses[0])
+        lr = trainer.lr_step(epoch_itr.epoch, valid_losses[0])   #调用fairseq中的trainer class中的lr_step来更新learning rate
 
-        epoch_itr = trainer.get_train_iterator(
+        epoch_itr = trainer.get_train_iterator(   #获取下一个train epoch
             epoch_itr.next_epoch_idx,
             # sharded data: get train iterator for next epoch
             load_dataset=task.has_sharded_data("train"),
@@ -256,7 +270,7 @@ def train(
         cfg.optimization.update_freq[epoch_itr.epoch - 1]
         if epoch_itr.epoch <= len(cfg.optimization.update_freq)
         else cfg.optimization.update_freq[-1]
-    )
+    )  #1
     itr = iterators.GroupedIterator(
         itr,
         update_freq,
@@ -307,13 +321,13 @@ def train(
 
     valid_subsets = cfg.dataset.valid_subset.split(",")
     should_stop = False
-    num_updates = trainer.get_num_updates()
+    num_updates = trainer.get_num_updates()  #0
     logger.info("Start iterating over samples")
     for i, samples in enumerate(progress):
         with metrics.aggregate("train_inner"), torch.autograd.profiler.record_function(
             "train_step-%d" % i
         ):
-            log_output = trainer.train_step(samples)
+            log_output = trainer.train_step(samples)  #重点！   #samples 是一个list：1 包括一个dict：2 包括 'id':=tensor(19,) 和'net_input'  {dict:1} source :(19,192960)
 
         if log_output is not None:  # not OOM, overflow, ...
             # log mid-epoch stats
@@ -326,7 +340,7 @@ def train(
                 # the end-of-epoch stats will still be preserved
                 metrics.reset_meters("train_inner")
 
-        end_of_epoch = not itr.has_next()
+        end_of_epoch = not itr.has_next()  #false/true
         valid_losses, should_stop = validate_and_save(
             cfg, trainer, task, epoch_itr, valid_subsets, end_of_epoch
         )
@@ -337,7 +351,11 @@ def train(
     # log end-of-epoch stats
     logger.info("end of epoch {} (average epoch stats below)".format(epoch_itr.epoch))
     stats = get_training_stats(metrics.get_smoothed_values("train"))
-    progress.print(stats, tag="train", step=num_updates)
+    progress.print(stats, tag="train", step=num_updates)      #print("haha1")
+
+    # wandb.log({'train_loss': stats['loss'],   #end-of-epoch stats
+    #            'train_correct_m_0': stats['correct_m_0'],
+    #            'train_correct_u_0': stats['correct_u_0'] })
 
     # reset epoch-level meters
     metrics.reset_meters("train")
@@ -399,7 +417,7 @@ def validate_and_save(
             and num_updates % cfg.checkpoint.save_interval_updates == 0
             and num_updates >= cfg.dataset.validate_after_updates
         )
-    )
+    )  #false
     do_validate = (
         (
             (not end_of_epoch and do_save)  # validate during mid-epoch saves
@@ -413,14 +431,14 @@ def validate_and_save(
         )
         and not cfg.dataset.disable_validation
         and num_updates >= cfg.dataset.validate_after_updates
-    )
+    )  #false
 
     # Validate
     valid_losses = [None]
     if do_validate:
-        valid_losses = validate(cfg, trainer, task, epoch_itr, valid_subsets)
+        valid_losses = validate(cfg, trainer, task, epoch_itr, valid_subsets)   #在验证集上评估模型并返回损失值!!!!
 
-    should_stop |= should_stop_early(cfg, valid_losses[0])
+    should_stop |= should_stop_early(cfg, valid_losses[0])  #false
 
     # Save checkpoint
     if do_save or should_stop:
@@ -513,6 +531,10 @@ def validate(
             task.post_validate(trainer.get_model(), stats, agg)
 
         progress.print(stats, tag=subset, step=trainer.get_num_updates())
+        #print("haha")  定位对
+        # wandb.log({'valid_loss': stats['loss'],  # end-of-epoch stats
+        #            'valid_correct_m_0': stats['correct_m_0'],
+        #            'valid_correct_u_0': stats['correct_u_0']})
 
         valid_losses.append(stats[cfg.checkpoint.best_checkpoint_metric])
     return valid_losses

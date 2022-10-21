@@ -49,61 +49,61 @@ class ModelCriterion(FairseqCriterion):
         self.log_keys = log_keys
 
     def forward(self, model, sample, reduce=True):
-        net_output = model(**sample["net_input"])
+        net_output = model(**sample["net_input"])  #{'losses': {'regression': tensor(62556.4805, device='cuda:0', grad_fn=<MulBackward0>)}, 'sample_size': 4940, 'target_var': tensor(0.3525, device='cuda:0'), 'pred_var': tensor(0.3680, device='cuda:0'), 'ema_decay': 999.0}
 
         scaled_losses = {}
 
         if hasattr(model, "get_losses"):
             losses = model.get_losses(net_output, sample)
-        elif isinstance(net_output, dict) and "losses" in net_output:
+        elif isinstance(net_output, dict) and "losses" in net_output:  #这个
             losses = net_output["losses"]
         else:
             raise Exception("Could not retrieve losses")
 
-        for lk, p in losses.items():
+        for lk, p in losses.items(): #lk:regression p:62556。 就是loss的那个值。
             try:
-                coef = 1.0 if len(self.loss_weights) == 0 else self.loss_weights[lk]
+                coef = 1.0 if len(self.loss_weights) == 0 else self.loss_weights[lk]  #1
             except KeyError:
                 logger.error(
                     f"weight for loss {lk} is not in loss_weights ({self.loss_weights})"
                 )
                 raise
             if coef != 0 and p is not None:
-                scaled_losses[lk] = coef * p.float()
+                scaled_losses[lk] = coef * p.float() #没变嘛
 
-        loss = sum(scaled_losses.values())
+        loss = sum(scaled_losses.values()) #还是
 
         if "sample_size" in net_output:
-            sample_size = net_output["sample_size"]
+            sample_size = net_output["sample_size"] #49400
         else:
             sample_size = loss.numel()
 
-        if reduce and loss.numel() > 1:
+        if reduce and loss.numel() > 1: #没做
             loss = loss.sum()
 
         logging_output = {
             "loss": loss.data,
             "ntokens": sample_size,
-            "nsentences": sample["id"].numel(),
+            "nsentences": sample["id"].numel(),  # sample:'id'(19,),'net_input'[source] (19,192960)  我猜id是采的哪些样本:)
             "sample_size": sample_size,
             "_world_size": 1,
         }
 
-        for lk in self.log_keys:
+        for lk in self.log_keys:  #['ema_decay', 'target_var', 'pred_var']
             if lk in net_output and net_output[lk] is not None:
-                if not torch.is_tensor(net_output[lk]) or net_output[lk].numel() == 1:
-                    logging_output[lk] = float(net_output[lk])
+                if not torch.is_tensor(net_output[lk]) or net_output[lk].numel() == 1:  #数组元素的个数
+                    logging_output[lk] = float(net_output[lk])  #就看是不是个scalar
                 else:
                     for i, v in enumerate(net_output[lk]):
                         logging_output[f"{lk}_{i}"] = float(v)
 
-        if len(scaled_losses) > 1:
+        if len(scaled_losses) > 1:  #不做
             for lk, l in scaled_losses.items():
                 if l.numel() > 1:
                     l = l.sum()
                 logging_output[f"loss_{lk}"] = l.item()
 
-        if "logs" in net_output:
+        if "logs" in net_output:  #不做
             for lgw in net_output["logs"]:
                 logging_output[lgw] = net_output["logs"][lgw]
 

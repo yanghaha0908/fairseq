@@ -310,11 +310,11 @@ class Dictionary:
         append_eos=True,
         reverse_order=False,
     ) -> torch.IntTensor:
-        words = line_tokenizer(line)
+        words = line_tokenizer(line)  #['2','33','104','104',...]
         if reverse_order:
             words = list(reversed(words))
-        nwords = len(words)
-        ids = torch.IntTensor(nwords + 1 if append_eos else nwords)
+        nwords = len(words)  #1486
+        ids = torch.IntTensor(nwords + 1 if append_eos else nwords)  #(1486,) 均值为0随机数  #append_eos:false, nwords:1486
 
         for i, word in enumerate(words):
             if add_if_not_exist:
@@ -323,7 +323,7 @@ class Dictionary:
                 idx = self.index(word)
             if consumer is not None:
                 consumer(word, idx)
-            ids[i] = idx
+            ids[i] = idx   #每个label 对应的idx  2<->6 33<->37  {'<s>': 0, '<pad>': 1, '</s>': 2, '<unk>': 3, '0': 4, '1': 5, '2': 6,
         if append_eos:
             ids[nwords] = self.eos_index
         return ids

@@ -42,7 +42,7 @@ class Data2VecAudioConfig(Wav2Vec2Config):
     loss_scale: Optional[float] = field(
         default=None,
         metadata={
-            "help": "scale the reconstruction loss by this constant. if None then scales by 1/sqrt(dim)"
+            "help": "scale the reconstruction loss by this constant. if None then scales by 1/sqrt(dim)"  #??
         },
     )
     average_top_k_layers: int = field(
@@ -96,53 +96,53 @@ class Data2VecAudioModel(BaseFairseqModel):
         super().__init__()
         self.cfg = cfg
 
-        feature_enc_layers = eval(cfg.conv_feature_layers)
-        self.extractor_embed = feature_enc_layers[-1][0]
+        feature_enc_layers = eval(cfg.conv_feature_layers) #[(512, 10, 5), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 2, 2), (512, 2, 2)]
+        self.extractor_embed = feature_enc_layers[-1][0]  #512
 
         self.ema = None
-        self.embed = cfg.encoder_embed_dim
+        self.embed = cfg.encoder_embed_dim  #768
 
-        self.average_top_k_layers = cfg.average_top_k_layers
-        self.loss_beta = cfg.loss_beta
-        self.loss_scale = cfg.loss_scale
+        self.average_top_k_layers = cfg.average_top_k_layers #8
+        self.loss_beta = cfg.loss_beta #0.0
+        self.loss_scale = cfg.loss_scale  #none
 
-        self.feature_extractor = ConvFeatureExtractionModel(
+        self.feature_extractor = ConvFeatureExtractionModel(    #wav2vec.py 的extraction module 一堆卷积层 7个
             conv_layers=feature_enc_layers,
             dropout=0.0,
             mode=cfg.extractor_mode,
             conv_bias=cfg.conv_bias,
         )
 
-        self.post_extract_proj = nn.Linear(self.extractor_embed, cfg.encoder_embed_dim)
+        self.post_extract_proj = nn.Linear(self.extractor_embed, cfg.encoder_embed_dim)  #（512，768）
 
-        self.mask_prob = cfg.mask_prob
-        self.mask_selection = cfg.mask_selection
-        self.mask_other = cfg.mask_other
-        self.mask_length = cfg.mask_length
-        self.no_mask_overlap = cfg.no_mask_overlap
-        self.mask_min_space = cfg.mask_min_space
+        self.mask_prob = cfg.mask_prob  #0.65
+        self.mask_selection = cfg.mask_selection  #
+        self.mask_other = cfg.mask_other  #0
+        self.mask_length = cfg.mask_length  #10
+        self.no_mask_overlap = cfg.no_mask_overlap  #false
+        self.mask_min_space = cfg.mask_min_space  #1
 
-        self.mask_channel_prob = cfg.mask_channel_prob
-        self.mask_channel_before = cfg.mask_channel_before
-        self.mask_channel_selection = cfg.mask_channel_selection
-        self.mask_channel_other = cfg.mask_channel_other
-        self.mask_channel_length = cfg.mask_channel_length
-        self.no_mask_channel_overlap = cfg.no_mask_channel_overlap
-        self.mask_channel_min_space = cfg.mask_channel_min_space
+        self.mask_channel_prob = cfg.mask_channel_prob  #0
+        self.mask_channel_before = cfg.mask_channel_before  #false
+        self.mask_channel_selection = cfg.mask_channel_selection  #static
+        self.mask_channel_other = cfg.mask_channel_other  #0
+        self.mask_channel_length = cfg.mask_channel_length  #10
+        self.no_mask_channel_overlap = cfg.no_mask_channel_overlap  #false
+        self.mask_channel_min_space = cfg.mask_channel_min_space  #1
 
-        self.dropout_input = nn.Dropout(cfg.dropout_input)
-        self.dropout_features = nn.Dropout(cfg.dropout_features)
+        self.dropout_input = nn.Dropout(cfg.dropout_input)  #0
+        self.dropout_features = nn.Dropout(cfg.dropout_features)  #0
 
-        self.feature_grad_mult = cfg.feature_grad_mult
+        self.feature_grad_mult = cfg.feature_grad_mult  #1
 
         self.mask_emb = nn.Parameter(
-            torch.FloatTensor(cfg.encoder_embed_dim).uniform_()
+            torch.FloatTensor(cfg.encoder_embed_dim).uniform_()   #定义一个768 纬float的形状，然后0-1均匀采样
         )
 
-        self.encoder = TransformerEncoder(cfg)
+        self.encoder = TransformerEncoder(cfg)   #也是wav2vec文件里的
         self.layer_norm = LayerNorm(self.extractor_embed)
 
-        self.final_proj = nn.Linear(self.embed, self.embed)
+        self.final_proj = nn.Linear(self.embed, self.embed)  #768,768,
 
         self.num_updates = 0
 
@@ -215,9 +215,9 @@ class Data2VecAudioModel(BaseFairseqModel):
         mask_indices=None,
         mask_channel_indices=None,
     ):
-        B, T, C = x.shape
+        B, T, C = x.shape  # 19 602 768
 
-        if self.mask_channel_prob > 0 and self.mask_channel_before:
+        if self.mask_channel_prob > 0 and self.mask_channel_before:  #self.mask_channel_before false
             mask_channel_indices = compute_mask_indices(
                 (B, C),
                 None,
@@ -240,8 +240,8 @@ class Data2VecAudioModel(BaseFairseqModel):
             if mask_indices is None:
                 mask_indices = compute_mask_indices(
                     (B, T),
-                    padding_mask,
-                    self.mask_prob,
+                    padding_mask,  #none
+                    self.mask_prob,  #0.65
                     self.mask_length,
                     self.mask_selection,
                     self.mask_other,
@@ -250,13 +250,13 @@ class Data2VecAudioModel(BaseFairseqModel):
                     min_space=self.mask_min_space,
                     require_same_masks=self.cfg.require_same_masks,
                     mask_dropout=self.cfg.mask_dropout,
-                )
+                )   #（19，602）的矩阵 所有要mask的地方都是true，其余地方是false
                 mask_indices = torch.from_numpy(mask_indices).to(x.device)
-            x = index_put(x, mask_indices, self.mask_emb)
-        else:
+            x = index_put(x, mask_indices, self.mask_emb)  #x是wav2vec吐出来的（19，602，768），  #定义一个768 纬float的形状，然后0-1均匀采样  # tensor[indices] = value
+        else:   #x[mask_indices]=self.mask_emb  把被mask的地方都换成随机的768维向量
             mask_indices = None
 
-        if self.mask_channel_prob > 0 and not self.mask_channel_before:
+        if self.mask_channel_prob > 0 and not self.mask_channel_before:  #no no no
             if mask_channel_indices is None:
                 mask_channel_indices = compute_mask_indices(
                     (B, C),
@@ -306,10 +306,10 @@ class Data2VecAudioModel(BaseFairseqModel):
         mask_channel_indices=None,
         padding_count=None,
     ):
-        features = source
+        features = source  #（19，192960）
 
         if self.feature_grad_mult > 0:
-            features = self.feature_extractor(features)
+            features = self.feature_extractor(features)  #（19，512，602）
             if self.feature_grad_mult != 1.0:
                 features = GradMultiply.apply(features, self.feature_grad_mult)
         else:
@@ -318,9 +318,9 @@ class Data2VecAudioModel(BaseFairseqModel):
 
         features = features.transpose(1, 2)
 
-        features = self.layer_norm(features)
+        features = self.layer_norm(features)  #（19，602，512）
 
-        orig_padding_mask = padding_mask
+        orig_padding_mask = padding_mask  #None
 
         if padding_mask is not None and padding_mask.any():
             input_lengths = (1 - padding_mask.long()).sum(-1)
@@ -344,13 +344,13 @@ class Data2VecAudioModel(BaseFairseqModel):
             padding_mask = None
 
         if self.post_extract_proj is not None:
-            features = self.post_extract_proj(features)
+            features = self.post_extract_proj(features)  #（19，602，768）    #nn.Linear(self.extractor_embed, cfg.encoder_embed_dim)  #（512，768）
 
         pre_encoder_features = None
         if self.cfg.ema_transformer_only:
-            pre_encoder_features = features.clone()
+            pre_encoder_features = features.clone() #（19，602，768）
 
-        features = self.dropout_input(features)
+        features = self.dropout_input(features) #（19，602，768）
 
         if mask:
             x, mask_indices = self.apply_mask(
@@ -363,11 +363,11 @@ class Data2VecAudioModel(BaseFairseqModel):
             x = features
             mask_indices = None
 
-        x, layer_results = self.encoder(
+        x, layer_results = self.encoder(  # TransformerEncoder wav2veq里
             x,
-            padding_mask=padding_mask,
-            layer=layer,
-        )
+            padding_mask=padding_mask,  #none
+            layer=layer,  #none
+        )  #（19，602，768）  list:11 ?????
 
         if features_only:
             return {
@@ -383,12 +383,12 @@ class Data2VecAudioModel(BaseFairseqModel):
         with torch.no_grad():
             self.ema.model.eval()
 
-            if self.cfg.ema_transformer_only:
-                y, layer_results = self.ema.model.extract_features(
-                    pre_encoder_features,
+            if self.cfg.ema_transformer_only:  #true
+                y, layer_results = self.ema.model.extract_features(   #ema.model TransformerEncoder  #跟上面一样的流程
+                    pre_encoder_features,  #没被mask过的，搞真正的标签mask
                     padding_mask=padding_mask,
                     min_layer=self.cfg.encoder_layers - self.average_top_k_layers,
-                )
+                )  #(19，602，768）,list:8
                 y = {
                     "x": y,
                     "padding_mask": padding_mask,
@@ -401,7 +401,7 @@ class Data2VecAudioModel(BaseFairseqModel):
                     mask=False,
                 )
 
-            target_layer_results = [l[2] for l in y["layer_results"]]
+            target_layer_results = [l[2] for l in y["layer_results"]]  #target_layer_results和layer_results 都是没mask的。每个layer_results 是 tuple:3   (602,19,768),none,(602,19,768) 为什么？？
 
             permuted = False
             if self.cfg.instance_norm_target_layer or self.cfg.batch_norm_target_layer:
@@ -410,7 +410,7 @@ class Data2VecAudioModel(BaseFairseqModel):
                 ]
                 permuted = True
 
-            if self.cfg.batch_norm_target_layer:
+            if self.cfg.batch_norm_target_layer: #false
                 target_layer_results = [
                     F.batch_norm(
                         tl.float(), running_mean=None, running_var=None, training=True
@@ -428,38 +428,38 @@ class Data2VecAudioModel(BaseFairseqModel):
                     tl.transpose(1, 2) for tl in target_layer_results  # BCT -> BTC
                 ]
 
-            if self.cfg.group_norm_target_layer:
+            if self.cfg.group_norm_target_layer: #false
                 target_layer_results = [
                     F.layer_norm(tl.float(), tl.shape[-2:])
                     for tl in target_layer_results
                 ]
 
-            if self.cfg.layer_norm_target_layer:
+            if self.cfg.layer_norm_target_layer:  #false
                 target_layer_results = [
                     F.layer_norm(tl.float(), tl.shape[-1:])
                     for tl in target_layer_results
                 ]
 
-            y = sum(target_layer_results) / len(target_layer_results)
+            y = sum(target_layer_results) / len(target_layer_results)  #取平均  #(19,602,768)
 
-            if self.cfg.layer_norm_targets:
+            if self.cfg.layer_norm_targets:  #false
                 y = F.layer_norm(y.float(), y.shape[-1:])
 
-            if self.cfg.instance_norm_targets:
+            if self.cfg.instance_norm_targets:  #false
                 y = F.instance_norm(y.float().transpose(1, 2)).transpose(1, 2)
 
-            if not permuted:
+            if not permuted:  #没做
                 y = y.transpose(0, 1)
 
-            y = y[mask_indices]
+            y = y[mask_indices]  #(4940,768)  # torch.sum(mask_indices) tensor(4940, device='cuda:0')
 
-        x = x[mask_indices]
-        x = self.final_proj(x)
+        x = x[mask_indices]  #(4940,768)
+        x = self.final_proj(x)  #(4940,768)
 
-        sz = x.size(-1)
+        sz = x.size(-1)  #768
 
-        if self.loss_beta == 0:
-            loss = F.mse_loss(x.float(), y.float(), reduction="none").sum(dim=-1)
+        if self.loss_beta == 0: #yes
+            loss = F.mse_loss(x.float(), y.float(), reduction="none").sum(dim=-1)  #（4940的每组x,y 在768维上的差异加和！）
         else:
             loss = F.smooth_l1_loss(
                 x.float(), y.float(), reduction="none", beta=self.loss_beta
@@ -467,19 +467,19 @@ class Data2VecAudioModel(BaseFairseqModel):
 
         if self.loss_scale is not None:
             scale = self.loss_scale
-        else:
+        else:  #做这个
             scale = 1 / math.sqrt(sz)
 
         result["losses"]["regression"] = loss.sum() * scale
 
         if "sample_size" not in result:
-            result["sample_size"] = loss.numel()
+            result["sample_size"] = loss.numel()  #4940
 
         with torch.no_grad():
             result["target_var"] = self.compute_var(y)
             result["pred_var"] = self.compute_var(x.float())
 
-        if self.num_updates > 5000 and result["target_var"] < self.cfg.min_target_var:
+        if self.num_updates > 5000 and result["target_var"] < self.cfg.min_target_var:  #0.1
             logger.error(
                 f"target var is {result['target_var'].item()} < {self.cfg.min_target_var}, exiting"
             )
@@ -495,7 +495,7 @@ class Data2VecAudioModel(BaseFairseqModel):
             )
 
         if self.ema is not None:
-            result["ema_decay"] = self.ema.get_decay() * 1000
+            result["ema_decay"] = self.ema.get_decay() * 1000  #0.999
 
         return result
 

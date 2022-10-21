@@ -120,7 +120,7 @@ class AudioPretrainingTask(FairseqTask):
             cfg (AudioPretrainingConfig): configuration of this task
         """
 
-        return cls(cfg)
+        return cls(cfg)  #到这  跳到 fairseq_task
 
     def _get_mask_precompute_kwargs(self, cfg):
         if self.cfg.precompute_mask_indices or self.cfg.tpu:

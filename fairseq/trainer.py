@@ -98,7 +98,7 @@ class Trainer(object):
         self._criterion = criterion
         self._model = model
         if not self.is_fsdp:
-            if cfg.common.fp16:
+            if cfg.common.fp16:  #这个
                 assert not cfg.common.amp, "Cannot use fp16 and AMP together"
                 self._criterion = self._criterion.half()
                 self._model = self._model.half()
@@ -161,7 +161,7 @@ class Trainer(object):
                 )
             else:
                 self.cuda_env_arr = [self.cuda_env]
-            if self.data_parallel_rank == 0:
+            if self.data_parallel_rank == 0:  #???
                 utils.CudaEnvironment.pretty_print_cuda_env_list(self.cuda_env_arr)
         else:
             self.cuda_env = None
@@ -716,7 +716,7 @@ class Trainer(object):
             grouped_shuffling=self.cfg.dataset.grouped_shuffling,
             update_epoch_batch_itr=self.cfg.dataset.update_epoch_batch_itr,
         )
-        self.reset_dummy_batch(batch_iterator.first_batch)
+        self.reset_dummy_batch(batch_iterator.first_batch)  #搞好了first batch
         return batch_iterator
 
     def get_valid_iterator(
@@ -793,10 +793,10 @@ class Trainer(object):
         if self.cfg.ema.store_ema and getattr(self.task, "uses_ema", False):
             extra_kwargs["ema_model"] = self.ema.get_model()
 
-        # forward and backward pass
+        # forward and backward passwan
         logging_outputs, sample_size, ooms = [], 0, 0
-        for i, sample in enumerate(samples):  # delayed update loop
-            sample, is_dummy_batch = self._prepare_sample(sample)
+        for i, sample in enumerate(samples): #samples 就list：1 # delayed update loop
+            sample, is_dummy_batch = self._prepare_sample(sample)  #那个dict：2 和 false
 
             def maybe_no_sync():
                 """
@@ -829,11 +829,11 @@ class Trainer(object):
                         update_num=self.get_num_updates(),
                         ignore_grad=is_dummy_batch,
                         **extra_kwargs,
-                    )
+                    )   #真正计算出来！
                     del loss
 
                 logging_outputs.append(logging_output)
-                sample_size += sample_size_i
+                sample_size += sample_size_i  #4940
 
                 # emptying the CUDA cache after the first step can
                 # reduce the chance of OOM
@@ -947,7 +947,7 @@ class Trainer(object):
                         raise FloatingPointError("gradients are Nan/Inf")
 
             with torch.autograd.profiler.record_function("optimizer"):
-                # take an optimization step
+                # take an optimization step  !!!
                 self.task.optimizer_step(
                     self.optimizer, model=self.model, update_num=self.get_num_updates()
                 )
@@ -1008,7 +1008,7 @@ class Trainer(object):
         if not overflow or self.cfg.distributed_training.ddp_backend == "slowmo":
             self.set_num_updates(self.get_num_updates() + 1)
 
-            if self.cfg.ema.store_ema:
+            if self.cfg.ema.store_ema:  #false
                 # Step EMA forward with new model.
                 self.ema.step(
                     self.get_model(),

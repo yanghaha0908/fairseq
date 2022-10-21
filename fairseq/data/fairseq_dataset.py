@@ -139,7 +139,7 @@ class FairseqDataset(torch.utils.data.Dataset, EpochListening):
 
         try:
             num_tokens_vec = self.num_tokens_vec(indices).astype("int64")
-        except NotImplementedError:
+        except NotImplementedError:  #这
             num_tokens_vec = None
 
         return data_utils.batch_by_size(
@@ -148,7 +148,7 @@ class FairseqDataset(torch.utils.data.Dataset, EpochListening):
             num_tokens_vec=num_tokens_vec,
             max_tokens=max_tokens,
             max_sentences=max_sentences,
-            required_batch_size_multiple=required_batch_size_multiple,
+            required_batch_size_multiple=required_batch_size_multiple,  #8
             fixed_shapes=fixed_shapes,
         )
 

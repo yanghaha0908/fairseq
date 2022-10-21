@@ -32,7 +32,7 @@ def setup_task(cfg: FairseqDataclass, **kwargs):
             dc = TASK_DATACLASS_REGISTRY[task_name]
             cfg = dc.from_namespace(cfg)
     else:
-        task_name = getattr(cfg, "_name", None)
+        task_name = getattr(cfg, "_name", None)  #'hubert_pretraining'  #'audio_pretraining'
 
         if task_name and task_name in TASK_DATACLASS_REGISTRY:
             dc = TASK_DATACLASS_REGISTRY[task_name]

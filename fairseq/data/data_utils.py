@@ -325,9 +325,9 @@ def batch_by_size(
         )
 
     # added int() to avoid TypeError: an integer is required
-    max_tokens = int(max_tokens) if max_tokens is not None else -1
-    max_sentences = max_sentences if max_sentences is not None else -1
-    bsz_mult = required_batch_size_multiple
+    max_tokens = int(max_tokens) if max_tokens is not None else -1  #1400000
+    max_sentences = max_sentences if max_sentences is not None else -1  #-1
+    bsz_mult = required_batch_size_multiple  #8
 
     if not isinstance(indices, np.ndarray):
         indices = np.fromiter(indices, dtype=np.int64, count=-1)
@@ -391,10 +391,10 @@ def post_process(sentence: str, symbol: str):
 
 
 def compute_mask_indices(
-    shape: Tuple[int, int],
+    shape: Tuple[int, int],  #(19,602)
     padding_mask: Optional[torch.Tensor],
-    mask_prob: float,
-    mask_length: int,
+    mask_prob: float,  #0.65
+    mask_length: int,   #10
     mask_type: str = "static",
     mask_other: float = 0.0,
     min_masks: int = 0,
@@ -425,19 +425,19 @@ def compute_mask_indices(
         mask_dropout: randomly dropout this percentage of masks in each example
     """
 
-    bsz, all_sz = shape
-    mask = np.full((bsz, all_sz), False)
+    bsz, all_sz = shape  #19 602
+    mask = np.full((bsz, all_sz), False) #(19,602) 全是false
 
     all_num_mask = int(
         # add a random number for probabilistic rounding
-        mask_prob * all_sz / float(mask_length)
+        mask_prob * all_sz / float(mask_length)  #39.13
         + np.random.rand()
-    )
+    )  #39
 
-    all_num_mask = max(min_masks, all_num_mask)
+    all_num_mask = max(min_masks, all_num_mask)  #39
 
     mask_idcs = []
-    for i in range(bsz):
+    for i in range(bsz):  #19  每个batch都生成一个mask_idc
         if padding_mask is not None:
             sz = all_sz - padding_mask[i].long().sum().item()
             num_mask = int(
@@ -451,7 +451,7 @@ def compute_mask_indices(
             num_mask = all_num_mask
 
         if mask_type == "static":
-            lengths = np.full(num_mask, mask_length)
+            lengths = np.full(num_mask, mask_length)  #（39，） 全是10
         elif mask_type == "uniform":
             lengths = np.random.randint(mask_other, mask_length * 2 + 1, size=num_mask)
         elif mask_type == "normal":
@@ -495,12 +495,12 @@ def compute_mask_indices(
                 s, e = parts.pop(c)
                 parts.extend(arrange(s, e, length, min_length))
             mask_idc = np.asarray(mask_idc)
-        else:
-            min_len = min(lengths)
+        else:  #有重叠
+            min_len = min(lengths)  #10
             if sz - min_len <= num_mask:
                 min_len = sz - num_mask - 1
 
-            mask_idc = np.random.choice(sz - min_len, num_mask, replace=False)
+            mask_idc = np.random.choice(sz - min_len, num_mask, replace=False)  #(39,) 随机挑选被mask的t
 
             mask_idc = np.asarray(
                 [
@@ -508,21 +508,21 @@ def compute_mask_indices(
                     for j in range(len(mask_idc))
                     for offset in range(lengths[j])
                 ]
-            )
+            )  #（390，）  #eg. mask_idc=[477 514 195]  #[477,478...,486,514,515,...,523,195,196,...,]
 
-        mask_idcs.append(np.unique(mask_idc[mask_idc < sz]))
-
-    min_len = min([len(m) for m in mask_idcs])
+        mask_idcs.append(np.unique(mask_idc[mask_idc < sz]))  #去重
+    #mask_idcs是一个长度为19的list
+    min_len = min([len(m) for m in mask_idcs])  #长度最短的mask_idsc的长度  #260
     for i, mask_idc in enumerate(mask_idcs):
-        if len(mask_idc) > min_len and require_same_masks:
-            mask_idc = np.random.choice(mask_idc, min_len, replace=False)
-        if mask_dropout > 0:
+        if len(mask_idc) > min_len and require_same_masks:  # True
+            mask_idc = np.random.choice(mask_idc, min_len, replace=False)  #从mask_id中随机抽取数字，返回min_len的数组,不可以取相同数字
+        if mask_dropout > 0:  #=0
             num_holes = np.rint(len(mask_idc) * mask_dropout).astype(int)
             mask_idc = np.random.choice(
                 mask_idc, len(mask_idc) - num_holes, replace=False
             )
 
-        mask[i, mask_idc] = True
+        mask[i, mask_idc] = True  #mask 本来是 （19，602）全false的矩阵  #把要mask的地方都标成true
 
     return mask
 

@@ -1,0 +1,46 @@
+{
+
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+
+            "args": [
+                "-m",
+                "--config-dir",
+                "examples/data2vec/config/text/pretraining",
+                "--config-name",
+                "base",
+                "task.data=/mnt/lustre/sjtu/home/xc915/data/data-bin/wikitext-2",
+                "common.user_dir=examples/data2vec"
+     
+            ]
+
+        },
+
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Program",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${file}",
+            "args": [
+                "-m",
+                "--config-dir",
+                "examples/data2vec/config/text/pretraining",
+                "--config-name",
+                "base",
+                "task.data=/mnt/lustre/sjtu/home/xc915/data/data-bin/wikitext-2",
+                "common.user_dir=examples/data2vec"
+
+            ]
+        }
+    ]
+}

@@ -266,12 +266,12 @@ def load_checkpoint(cfg: CheckpointConfig, trainer, **passthrough_args):
         itr_state = extra_state["train_iterator"]
         epoch_itr = trainer.get_train_iterator(
             epoch=itr_state["epoch"], load_dataset=True, **passthrough_args
-        )
+        )  #！
         epoch_itr.load_state_dict(itr_state)
     else:
         epoch_itr = trainer.get_train_iterator(
             epoch=1, load_dataset=True, **passthrough_args
-        )
+        )   #从这跳到数据集
 
     trainer.lr_step(epoch_itr.epoch)
 

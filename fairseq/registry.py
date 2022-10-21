@@ -33,7 +33,7 @@ def setup_registry(registry_name: str, base_class=None, default=None, required=F
 
     def build_x(cfg: Union[DictConfig, str, Namespace], *extra_args, **extra_kwargs):
         if isinstance(cfg, DictConfig):
-            choice = cfg._name
+            choice = cfg._name  #'hubert'
 
             if choice and choice in DATACLASS_REGISTRY:
                 dc = DATACLASS_REGISTRY[choice]

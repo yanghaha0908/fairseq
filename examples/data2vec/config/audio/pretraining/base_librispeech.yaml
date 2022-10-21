@@ -21,14 +21,14 @@ task:
 
 dataset:
   num_workers: 6
-  max_tokens: 3800000
+  max_tokens: 38000
   skip_invalid_size_inputs_valid_test: true
   validate_interval: 5
   required_batch_size_multiple: 1
   disable_validation: true
 
 distributed_training:
-  distributed_world_size: 16
+  distributed_world_size: 1
   ddp_backend: legacy_ddp
 
 criterion:
@@ -39,7 +39,8 @@ criterion:
     - pred_var
 
 optimization:
-  max_update: 400000
+  max_update: 400
+  max_epoch: 1
   lr: [0.0005]
 
 optimizer:
