@@ -73,14 +73,14 @@ class CtcCriterion(FairseqCriterion):
             task.target_dictionary.index(task.blank_symbol)
             if hasattr(task, "blank_symbol")
             else 0
-        )
-        self.pad_idx = task.target_dictionary.pad()
-        self.eos_idx = task.target_dictionary.eos()
-        self.post_process = cfg.post_process
+        ) #0
+        self.pad_idx = task.target_dictionary.pad() #1
+        self.eos_idx = task.target_dictionary.eos() #2
+        self.post_process = cfg.post_process #'letter'
 
-        self.rdrop_alpha = rdrop_alpha
+        self.rdrop_alpha = rdrop_alpha #0
 
-        if cfg.wer_args is not None:
+        if cfg.wer_args is not None: #x
             (
                 cfg.wer_kenlm_model,
                 cfg.wer_lexicon,
@@ -105,21 +105,21 @@ class CtcCriterion(FairseqCriterion):
             dec_args.sil_weight = 0
 
             self.w2l_decoder = W2lKenLMDecoder(dec_args, task.target_dictionary)
-        else:
+        else: #
             self.w2l_decoder = None
 
-        self.zero_infinity = cfg.zero_infinity
+        self.zero_infinity = cfg.zero_infinity #True
         self.sentence_avg = cfg.sentence_avg
 
     def forward(self, model, sample, reduce=True, **kwargs):
-        net_output = model(**sample["net_input"])
+        net_output = model(**sample["net_input"]) #dict:3 'encoder_out'=(686,8,32)
         lprobs = model.get_normalized_probs(
             net_output, log_probs=True
-        ).contiguous()  # (T, B, C) from the encoder
+        ).contiguous()  # (T, B, C) from the encoder  (686,8,32) 过了一个log_softmax
 
         # CTC loss is calculated over duplicated inputs
         # sample is already duplicated for R-Drop
-        if self.rdrop_alpha > 0:
+        if self.rdrop_alpha > 0:  #没做
             for k, v in sample.items():
                 if k in ["target", "target_lengths"]:
                     sample[k] = torch.cat([v, v.clone()], dim=0)
@@ -138,27 +138,27 @@ class CtcCriterion(FairseqCriterion):
 
         if "src_lengths" in sample["net_input"]:
             input_lengths = sample["net_input"]["src_lengths"]
-        else:
+        else: #
             if net_output["padding_mask"] is not None:
-                non_padding_mask = ~net_output["padding_mask"]
-                input_lengths = non_padding_mask.long().sum(-1)
+                non_padding_mask = ~net_output["padding_mask"]  #
+                input_lengths = non_padding_mask.long().sum(-1)  #tensor([686, 686, 686, 686, 686, 686, 686, 686]
             else:
                 input_lengths = lprobs.new_full(
                     (lprobs.size(1),), lprobs.size(0), dtype=torch.long
                 )
-
+        # sample[target] (8,220)
         pad_mask = (sample["target"] != self.pad_idx) & (
-            sample["target"] != self.eos_idx
+            sample["target"] != self.eos_idx  #（8,220) 前[194,181,220,154,217,185,200,148]全是true，后面都是false 和target_lengt一摸一样
         )
-        targets_flat = sample["target"].masked_select(pad_mask)
+        targets_flat = sample["target"].masked_select(pad_mask) #(1499,)  #把真的有的target挑出来
         if "target_lengths" in sample:
-            target_lengths = sample["target_lengths"]
+            target_lengths = sample["target_lengths"]  #sample[tensor([194, 181, 220, 154, 217, 185, 200, 148], device='cuda:0') 和是1499
         else:
             target_lengths = pad_mask.sum(-1)
 
         with torch.backends.cudnn.flags(enabled=False):
             loss = F.ctc_loss(
-                lprobs,
+                lprobs,  #(686,8,32) 上面过完log_softmax的
                 targets_flat,
                 input_lengths,
                 target_lengths,
@@ -169,13 +169,13 @@ class CtcCriterion(FairseqCriterion):
 
         ntokens = (
             sample["ntokens"] if "ntokens" in sample else target_lengths.sum().item()
-        )
+        )  #1499
 
         sample_size = sample["target"].size(0) if self.sentence_avg else ntokens
         logging_output = {
             "loss": utils.item(loss.data),  # * sample['ntokens'],
             "ntokens": ntokens,
-            "nsentences": sample["id"].numel(),
+            "nsentences": sample["id"].numel(),  #8
             "sample_size": sample_size,
         }
 

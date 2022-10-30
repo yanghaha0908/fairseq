@@ -394,7 +394,7 @@ class HubertModel(BaseFairseqModel):
                 features = GradMultiply.apply(features, self.feature_grad_mult)
         else:
             with torch.no_grad():
-                features = self.feature_extractor(source)
+                features = self.feature_extractor(source) #这  #（8，512，686）
         return features
 
     def forward_targets(
@@ -435,7 +435,7 @@ class HubertModel(BaseFairseqModel):
     ) -> Dict[str, torch.Tensor]:
         """output layer is 1-based"""
         features = self.forward_features(source)   #就是过 ConvFeatureExtractionModel （8，512，477） #source (8,152960)
-        if target_list is not None:
+        if target_list is not None:  #没做
             features, target_list = self.forward_targets(features, target_list) #features 无变化 target_list（8，477）
 
         features_pen = features.float().pow(2).mean()  #所有项平方取均值 #0.2904
@@ -468,10 +468,10 @@ class HubertModel(BaseFairseqModel):
             x,
             padding_mask=padding_mask,
             layer=None if output_layer is None else output_layer - 1,
-        )  #transformoer encoder
+        )  #transformer encoder  #(8,686,768)
 
         if features_only:
-            return {"x": x, "padding_mask": padding_mask, "features": features}
+            return {"x": x, "padding_mask": padding_mask, "features": features}  #finetune到这步
 
         def compute_pred(proj_x, target, label_embs): #proj_x:(1936,256), target(1936,) 0~500 label_embs:(504,256)
             # compute logits for the i-th label set
@@ -538,8 +538,8 @@ class HubertModel(BaseFairseqModel):
             mask=mask,
             features_only=True,
             output_layer=output_layer,
-        )
-        feature = res["features"] if ret_conv else res["x"]
+        )   #dict:3  'x' (8,686,768) 'features' (8,686,768)
+        feature = res["features"] if ret_conv else res["x"]   #ret_conv=false
         return feature, res["padding_mask"]
 
     def get_logits(self, net_output, is_masked=True):

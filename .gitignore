@@ -142,3 +142,8 @@ outputs
 
 # checkpoints
 None
+finecheck
+finetune_config
+
+# log
+*.sh

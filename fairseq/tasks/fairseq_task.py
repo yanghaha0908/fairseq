@@ -292,7 +292,7 @@ class FairseqTask(object):
             )
 
         # create mini-batches with given size constraints
-        batch_sampler = dataset.batch_by_size(    # list: 44462 ndarrray:(5,)
+        batch_sampler = dataset.batch_by_size(    # list: 44462 ndarrray:(6,)(7,)(8,)剩下全是8
             indices,
             max_tokens=max_tokens,
             max_sentences=max_sentences,

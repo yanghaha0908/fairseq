@@ -11,14 +11,22 @@
             "justMyCode": true,
 
             "args": [
-                "-m",
                 "--config-dir",
-                "examples/data2vec/config/text/pretraining",
+                "examples/hubert/config/pretrain",
                 "--config-name",
-                "base",
-                "task.data=/mnt/lustre/sjtu/home/xc915/data/data-bin/wikitext-2",
-                "common.user_dir=examples/data2vec"
-     
+                "hubert_base_librispeech",
+                "task.data=/data/ygr/small20",
+                "task.label_dir=/data/ygr/small20",
+                "task.labels=[km]",
+                "model.label_rate=50",
+                "optimization.max_update=20",
+                "checkpoint.save_interval=2",
+                "checkpoint.save_interval_updates=2",
+                "checkpoint.keep_interval_updates=-1",
+                "checkpoint.no_epoch_checkpoints=false",
+                "checkpoint.save_dir=/data/ygr/small20/che",
+                "dataset.validate_interval=5",
+                "distributed_training.distributed_world_size=1"
             ]
 
         },

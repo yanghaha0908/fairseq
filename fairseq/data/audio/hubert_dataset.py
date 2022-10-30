@@ -134,7 +134,7 @@ class HubertDataset(FairseqDataset):
     ):
         self.audio_root, self.audio_names, inds, tot, self.sizes = load_audio(
             manifest_path, max_keep_sample_size, min_keep_sample_size
-        )
+        )  # finetune时 max_keep=None, min_keep=None, loaded 2703, skipped 0 short and 0 long, longest-loaded=522320, shortest-loaded=23120
         self.sample_rate = sample_rate
         self.shuffle = shuffle
         self.random_crop = random_crop

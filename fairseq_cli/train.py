@@ -82,7 +82,7 @@ def main(cfg: FairseqConfig) -> None:
     #     print("初始化！")
     #     exit(0)
 
-    #wandb.init(project="hubert",config=cfg)
+    # wandb.init(project="hubert",config=cfg)
     # wandb.run.name="hubert_base"
     # wandb.run.save()
 
@@ -153,12 +153,12 @@ def main(cfg: FairseqConfig) -> None:
             max_epoch=cfg.optimization.max_epoch,
             max_update=cfg.optimization.max_update,
         )
-    else:
+    else: #
         quantizer = None
 
     # Build trainer
     if cfg.common.model_parallel_size == 1:  #这个
-        trainer = Trainer(cfg, task, model, criterion, quantizer) #初始化
+        trainer = Trainer(cfg, task, model, criterion, quantizer) #初始化 没啥东西
     else:
         trainer = MegatronTrainer(cfg, task, model, criterion)
     logger.info(
@@ -270,7 +270,7 @@ def train(
         cfg.optimization.update_freq[epoch_itr.epoch - 1]
         if epoch_itr.epoch <= len(cfg.optimization.update_freq)
         else cfg.optimization.update_freq[-1]
-    )  #1
+    )  #8
     itr = iterators.GroupedIterator(
         itr,
         update_freq,

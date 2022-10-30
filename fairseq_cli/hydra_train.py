@@ -6,6 +6,7 @@
 
 import logging
 import os
+# os.environ["CUDA_VISIBLE_DEVICES"] = "6"
 import hydra
 import torch
 from hydra.core.hydra_config import HydraConfig
@@ -58,7 +59,7 @@ def _hydra_main(cfg: FairseqConfig, **kwargs) -> float:
                 with torch.autograd.profiler.emit_nvtx():
                     distributed_utils.call_main(cfg, pre_main, **kwargs)
         else:
-            distributed_utils.call_main(cfg, pre_main, **kwargs)
+            distributed_utils.call_main(cfg, pre_main, **kwargs)   #这个
     except BaseException as e:
         if not cfg.common.suppress_crashes:
             raise

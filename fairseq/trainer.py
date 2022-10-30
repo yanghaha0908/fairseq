@@ -715,7 +715,7 @@ class Trainer(object):
             skip_remainder_batch=self.cfg.optimization.skip_remainder_batch,
             grouped_shuffling=self.cfg.dataset.grouped_shuffling,
             update_epoch_batch_itr=self.cfg.dataset.update_epoch_batch_itr,
-        )
+        )  # EpochBatchIterator:27267
         self.reset_dummy_batch(batch_iterator.first_batch)  #搞好了first batch
         return batch_iterator
 
@@ -746,7 +746,7 @@ class Trainer(object):
             disable_iterator_cache=disable_iterator_cache,
             skip_remainder_batch=False,
         )
-        self.reset_dummy_batch(batch_iterator.first_batch)
+        self.reset_dummy_batch(batch_iterator.first_batch)  # self._dummy_batch = batch取了第一个batch
         return batch_iterator
 
     def begin_epoch(self, epoch):

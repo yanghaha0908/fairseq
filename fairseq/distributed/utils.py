@@ -62,7 +62,7 @@ def infer_init_method(cfg: DistributedTrainingConfig, force_distributed=False):
         _infer_slurm_init(cfg, num_pipelines_per_node)
     elif cfg.distributed_world_size > 1 or force_distributed:
         # fallback for single node with multiple GPUs
-        _infer_single_node_init(cfg)
+        _infer_single_node_init(cfg)  #执行了这一句
 
     if cfg.pipeline_model_parallel:
         _pipeline_parallel_post_init(cfg, num_pipeline_devices, num_pipelines_per_node)
@@ -70,7 +70,7 @@ def infer_init_method(cfg: DistributedTrainingConfig, force_distributed=False):
         with open_dict(cfg):
             cfg.distributed_num_procs = min(
                 torch.cuda.device_count(), cfg.distributed_world_size
-            )
+            )  #就执行了这一句
 
 
 def _infer_torch_distributed_launch_init(cfg: DistributedTrainingConfig):
@@ -247,11 +247,11 @@ def distributed_init(cfg: FairseqConfig):
             warnings.warn(
                 "Distributed is already initialized, cannot initialize twice!"
             )
-        else:
+        else:  #这个
             logger.info(
                 "distributed init (rank {}): {}".format(
                     cfg.distributed_training.distributed_rank,
-                    cfg.distributed_training.distributed_init_method,
+                    cfg.distributed_training.distributed_init_method,  #??
                 )
             )
             dist.init_process_group(
@@ -259,7 +259,7 @@ def distributed_init(cfg: FairseqConfig):
                 init_method=cfg.distributed_training.distributed_init_method,
                 world_size=cfg.distributed_training.distributed_world_size,
                 rank=cfg.distributed_training.distributed_rank,
-            )
+            )  #等俩线程都执行完这一步（等俩都初始化） 再执行两个后面的
             logger.info(
                 "initialized host {} as rank {}".format(
                     socket.gethostname(),
@@ -271,7 +271,7 @@ def distributed_init(cfg: FairseqConfig):
             if torch.cuda.is_available():
                 dist.all_reduce(torch.zeros(1).cuda())
 
-        cfg.distributed_training.distributed_rank = torch.distributed.get_rank()
+        cfg.distributed_training.distributed_rank = torch.distributed.get_rank()  #0
     else:
         assert xm.xrt_world_size() == cfg.distributed_training.distributed_world_size
         global _USE_XLA
@@ -280,12 +280,12 @@ def distributed_init(cfg: FairseqConfig):
         cfg.distributed_training.distributed_rank = xm.get_ordinal()
         xm.rendezvous("distributed_init")  # wait for all workers
 
-    if is_master(cfg.distributed_training):
+    if is_master(cfg.distributed_training):  #==0 就算is_master
         logging.getLogger().setLevel(logging.INFO)
     else:
         logging.getLogger().setLevel(logging.WARNING)
 
-    if cfg.common.model_parallel_size > 1:
+    if cfg.common.model_parallel_size > 1:  #x
         try:
             from fairseq.model_parallel.megatron.mpu import (
                 initialize_model_parallel,
@@ -304,7 +304,7 @@ def distributed_init(cfg: FairseqConfig):
         model_part_number = get_model_parallel_rank()
         cfg.checkpoint.checkpoint_suffix += "-model_part-{0}".format(model_part_number)
 
-    if hasattr(cfg, "model") and getattr(cfg.model, "base_layers", 0) > 0:
+    if hasattr(cfg, "model") and getattr(cfg.model, "base_layers", 0) > 0: #x
         cfg.checkpoint.checkpoint_suffix = (
             f"-rank-{cfg.distributed_training.distributed_rank}"
         )
@@ -313,15 +313,15 @@ def distributed_init(cfg: FairseqConfig):
 
 
 def distributed_main(i, main, cfg: FairseqConfig, kwargs):
-    cfg.distributed_training.device_id = i
+    cfg.distributed_training.device_id = i  #1
     if torch.cuda.is_available() and not cfg.common.cpu and not cfg.common.tpu:
         torch.cuda.set_device(cfg.distributed_training.device_id)
     if cfg.distributed_training.distributed_rank is None:  # torch.multiprocessing.spawn
-        cfg.distributed_training.distributed_rank = kwargs.pop("start_rank", 0) + i
+        cfg.distributed_training.distributed_rank = kwargs.pop("start_rank", 0) + i  #1
 
     cfg.distributed_training.distributed_rank = distributed_init(cfg)
 
-    after_distributed_init_fn = kwargs.pop("after_distributed_init_fn", None)
+    after_distributed_init_fn = kwargs.pop("after_distributed_init_fn", None) #None
     if after_distributed_init_fn:
         cfg = after_distributed_init_fn(cfg)
 
@@ -333,12 +333,12 @@ def distributed_main(i, main, cfg: FairseqConfig, kwargs):
 
 def call_main(cfg: FairseqConfig, main, **kwargs):
     if cfg.distributed_training.distributed_init_method is None:
-        infer_init_method(cfg.distributed_training)
+        infer_init_method(cfg.distributed_training)  #!!!!
 
     if cfg.distributed_training.distributed_init_method is not None:
         # distributed training
-        if not cfg.distributed_training.distributed_no_spawn:
-            start_rank = cfg.distributed_training.distributed_rank
+        if not cfg.distributed_training.distributed_no_spawn:   #2卡这个
+            start_rank = cfg.distributed_training.distributed_rank  #0
             cfg.distributed_training.distributed_rank = None  # assign automatically
             kwargs["start_rank"] = start_rank
             torch.multiprocessing.spawn(
@@ -366,7 +366,7 @@ def call_main(cfg: FairseqConfig, main, **kwargs):
         )
     else:
         # single GPU main
-        main(cfg, **kwargs)
+        main(cfg, **kwargs)  #1张GPU 这一句！
 
 
 def use_xla():

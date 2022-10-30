@@ -167,7 +167,7 @@ class HubertCtc(BaseFairseqModel):
         """Get normalized probabilities (or log probs) from a net's output."""
 
         logits = net_output["encoder_out"]
-        if log_probs:
+        if log_probs: #
             return utils.log_softmax(logits.float(), dim=-1)
         else:
             return utils.softmax(logits.float(), dim=-1)
@@ -183,7 +183,7 @@ class HubertCtc(BaseFairseqModel):
         return logits
 
     def forward(self, **kwargs):
-        x = self.w2v_encoder(**kwargs)
+        x = self.w2v_encoder(**kwargs)  #HubertEncoder(cfg, task)
         return x
 
 
@@ -381,7 +381,7 @@ class HubertEncoder(FairseqEncoder):
         self.freeze_finetune_updates = cfg.freeze_finetune_updates
         self.num_updates = 0
 
-        if task.target_dictionary is not None and not cfg.autoregressive:
+        if task.target_dictionary is not None: #and not cfg.autoregressive:
             self.proj = Linear(d, len(task.target_dictionary))
         elif getattr(cfg, "decoder_embed_dim", d) != d:
             self.proj = Linear(d, cfg.decoder_embed_dim)
@@ -399,21 +399,21 @@ class HubertEncoder(FairseqEncoder):
             "source": source,
             "padding_mask": padding_mask,
             "mask": self.apply_mask and self.training,
-        }
+        }  #source (8,219600),  padding_mask 全False
 
-        ft = self.freeze_finetune_updates <= self.num_updates
+        ft = self.freeze_finetune_updates <= self.num_updates #false
 
         with torch.no_grad() if not ft else contextlib.ExitStack():
-            x, padding_mask = self.w2v_model.extract_features(**w2v_args)
+            x, padding_mask = self.w2v_model.extract_features(**w2v_args)  #self.w2v_model 就是HubertModel 过完transformer的
 
             if tbc:
-                # B x T x C -> T x B x C
+                # B x T x C -> T x B x C  #686，8，768
                 x = x.transpose(0, 1)
 
         x = self.final_dropout(x)
 
         if self.proj:
-            x = self.proj(x)
+            x = self.proj(x)  #686，8，32
 
         return {
             "encoder_out": x,  # T x B x C
