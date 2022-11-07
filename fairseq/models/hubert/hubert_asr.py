@@ -409,6 +409,7 @@ class HubertEncoder(FairseqEncoder):
             if tbc:
                 # B x T x C -> T x B x C  #686，8，768
                 x = x.transpose(0, 1)
+                x = x.transpose(0, 1)
 
         x = self.final_dropout(x)
 

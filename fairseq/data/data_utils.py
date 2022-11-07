@@ -425,16 +425,16 @@ def compute_mask_indices(
         mask_dropout: randomly dropout this percentage of masks in each example
     """
 
-    bsz, all_sz = shape  #19 602
-    mask = np.full((bsz, all_sz), False) #(19,602) 全是false
+    bsz, all_sz = shape  #19 602  #finetune:8,768
+    mask = np.full((bsz, all_sz), False) #(19,602) 全是false  #(8,768)
 
     all_num_mask = int(
         # add a random number for probabilistic rounding
-        mask_prob * all_sz / float(mask_length)  #39.13
+        mask_prob * all_sz / float(mask_length)  #39.13    #finetune:mask_prob=0.5  mask_length=64
         + np.random.rand()
-    )  #39
+    )  #39  #6
 
-    all_num_mask = max(min_masks, all_num_mask)  #39
+    all_num_mask = max(min_masks, all_num_mask)  #39  #6
 
     mask_idcs = []
     for i in range(bsz):  #19  每个batch都生成一个mask_idc
@@ -446,12 +446,12 @@ def compute_mask_indices(
                 + np.random.rand()
             )
             num_mask = max(min_masks, num_mask)
-        else:
+        else:   #finetune: 这个
             sz = all_sz
             num_mask = all_num_mask
 
         if mask_type == "static":
-            lengths = np.full(num_mask, mask_length)  #（39，） 全是10
+            lengths = np.full(num_mask, mask_length)  #（39，） 全是10   #[64,64,64,64,64,64]
         elif mask_type == "uniform":
             lengths = np.random.randint(mask_other, mask_length * 2 + 1, size=num_mask)
         elif mask_type == "normal":
@@ -500,7 +500,7 @@ def compute_mask_indices(
             if sz - min_len <= num_mask:
                 min_len = sz - num_mask - 1
 
-            mask_idc = np.random.choice(sz - min_len, num_mask, replace=False)  #(39,) 随机挑选被mask的t
+            mask_idc = np.random.choice(sz - min_len, num_mask, replace=False)  #(39,) 随机挑选被mask的t   #(6,)
 
             mask_idc = np.asarray(
                 [
@@ -508,11 +508,11 @@ def compute_mask_indices(
                     for j in range(len(mask_idc))
                     for offset in range(lengths[j])
                 ]
-            )  #（390，）  #eg. mask_idc=[477 514 195]  #[477,478...,486,514,515,...,523,195,196,...,]
+            )  #（390，）  #eg. mask_idc=[477 514 195]  #[477,478...,486,514,515,...,523,195,196,...,]  #(384,) 384=6*64
 
         mask_idcs.append(np.unique(mask_idc[mask_idc < sz]))  #去重
     #mask_idcs是一个长度为19的list
-    min_len = min([len(m) for m in mask_idcs])  #长度最短的mask_idsc的长度  #260
+    min_len = min([len(m) for m in mask_idcs])  #长度最短的mask_idsc的长度  #260   #294
     for i, mask_idc in enumerate(mask_idcs):
         if len(mask_idc) > min_len and require_same_masks:  # True
             mask_idc = np.random.choice(mask_idc, min_len, replace=False)  #从mask_id中随机抽取数字，返回min_len的数组,不可以取相同数字

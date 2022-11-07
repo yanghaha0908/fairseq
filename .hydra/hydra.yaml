@@ -121,5 +121,5 @@ hydra:
         exclude_keys: []
   runtime:
     version: 1.0.7
-    cwd: /mnt/lustre/sjtu/home/xc915/data/fairseq
+    cwd: /mnt/lustre/sjtu/home/gry10/fairseq
   verbose: false

@@ -179,11 +179,11 @@ class CtcCriterion(FairseqCriterion):
             "sample_size": sample_size,
         }
 
-        if not model.training:
+        if not model.training:  #(556,6,32)
             import editdistance
 
             with torch.no_grad():
-                lprobs_t = lprobs.transpose(0, 1).float().contiguous().cpu()
+                lprobs_t = lprobs.transpose(0, 1).float().contiguous().cpu()  #(6,556,32)
 
                 c_err = 0
                 c_len = 0
@@ -194,13 +194,13 @@ class CtcCriterion(FairseqCriterion):
                     lprobs_t,
                     sample["target_label"]
                     if "target_label" in sample
-                    else sample["target"],
-                    input_lengths,
-                ):
-                    lp = lp[:inp_l].unsqueeze(0)
+                    else sample["target"],  #(6,363) target 的 id
+                    input_lengths,  #tensor([556, 556, 556, 556, 556, 556], device='cuda:0')
+                ):  #lp (556,32) t(363,) inp_l(556)
+                    lp = lp[:inp_l].unsqueeze(0)  #(1,556,32)
 
                     decoded = None
-                    if self.w2l_decoder is not None:
+                    if self.w2l_decoder is not None:  #x
                         decoded = self.w2l_decoder.decode(lp)
                         if len(decoded) < 1:
                             decoded = None
@@ -210,21 +210,21 @@ class CtcCriterion(FairseqCriterion):
                                 decoded = None
                             else:
                                 decoded = decoded[0]
-
+                    #target
                     p = (t != self.task.target_dictionary.pad()) & (
                         t != self.task.target_dictionary.eos()
-                    )
-                    targ = t[p]
-                    targ_units = self.task.target_dictionary.string(targ)
-                    targ_units_arr = targ.tolist()
-
-                    toks = lp.argmax(dim=-1).unique_consecutive()
-                    pred_units_arr = toks[toks != self.blank_idx].tolist()
-
+                    )  #全true
+                    targ = t[p] #(353,)tensor
+                    targ_units = self.task.target_dictionary.string(targ) #valid.ltr那个样子： L I N N E L L ' S | P I C T U R E S | A R E | A | S O R T | O F | U P | G U A R D S | A N D | A T | E M | P A I N T I N G S | A N D | M A S O N ' S | E X Q U I S I T E | I D Y L L S | A R E | A S | N A T I O N A L | A S | A | J I N G O | P O E M | M I S T E R | B I R K E T | F O S T E R ' S | L A N D S C A P E S | S M I L E | A T | O N E | M U C H | I N | T H E | S A M E | W A Y | T H A T | M I S T E R | C A R K E R | U S E D | T O | F L A S H | H I S | T E E T H | A N D | M I S T E R | J O H N | C O L L I E R | G I V E S | H I S | S I T T E R | A | C H E E R F U L | S L A P | O N | T H E | B A C K | B E F O R E | H E | S A Y S | L I K E | A | S H A M P O O E R | I N | A | T U R K I S H | B A T H | N E X T | M A N |
+                    targ_units_arr = targ.tolist() #[15,10,9,9,5,15,15,27..] (363)
+                    #predict
+                    toks = lp.argmax(dim=-1).unique_consecutive() #(293,) 取每个时间步t最大的id，合并连续相同
+                    pred_units_arr = toks[toks != self.blank_idx].tolist()  #self.blank_idx是0 是<s> # (289,) [16,
+                                                                            #这里面是有4的 所以有分隔符
                     c_err += editdistance.eval(pred_units_arr, targ_units_arr)
-                    c_len += len(targ_units_arr)
+                    c_len += len(targ_units_arr)  #明白了，targ和predict都没有去掉｜ 所以是一样的
 
-                    targ_words = post_process(targ_units, self.post_process).split()
+                    targ_words = post_process(targ_units, self.post_process).split()  #["LINNELL'S", 'PICTURES', 'ARE', 'A', 'SORT', 'OF', 'UP', 'GUARDS', 'AND', 'AT', 'EM', 'PAINTINGS', 'AND', "MASON'S", 'EXQUISITE', 'IDYLLS', 'ARE', 'AS', 'NATIONAL', 'AS', 'A', 'JINGO', 'POEM', 'MISTER', 'BIRKET', "FOSTER'S", 'LANDSCAPES', 'SMILE', 'AT', 'ONE', 'MUCH', 'IN', 'THE', 'SAME', 'WAY', 'THAT', 'MISTER', 'CARKER', 'USED', 'TO', 'FLASH', 'HIS', 'TEETH', 'AND', 'MISTER', 'JOHN', 'COLLIER', 'GIVES', 'HIS', 'SITTER', 'A', 'CHEERFUL', 'SLAP', 'ON', 'THE', 'BACK', 'BEFORE', 'HE', 'SAYS', 'LIKE', 'A', 'SHAMPOOER', 'IN', 'A', 'TURKISH', 'BATH', 'NEXT', 'MAN']
 
                     pred_units = self.task.target_dictionary.string(pred_units_arr)
                     pred_words_raw = post_process(pred_units, self.post_process).split()
@@ -233,7 +233,7 @@ class CtcCriterion(FairseqCriterion):
                         pred_words = decoded["words"]
                         w_errs += editdistance.eval(pred_words, targ_words)
                         wv_errs += editdistance.eval(pred_words_raw, targ_words)
-                    else:
+                    else:  #这个
                         dist = editdistance.eval(pred_words_raw, targ_words)
                         w_errs += dist
                         wv_errs += dist

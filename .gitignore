@@ -140,10 +140,15 @@ nohup.out
 multirun
 outputs
 
-# checkpoints
+#ckpt
+*.pt
 None
-finecheck
-finetune_config
+finetune
+pretrain_fbank_ck
+pretrain_yinsu_ck
 
-# log
-*.sh
+
+#sh
+
+
+

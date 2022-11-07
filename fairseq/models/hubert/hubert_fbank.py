@@ -253,13 +253,13 @@ class HubertfbankModel(BaseFairseqModel):
         feature_enc_layers = eval(cfg.conv_feature_layers)   #[(512, 10, 5), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 2, 2), (512, 2, 2)]  # noqa
         self.embed = feature_enc_layers[-1][0] #512
 
-        self.feature_extractor = ConvFeatureExtractionModel(
-            conv_layers=feature_enc_layers,
-            dropout=0.0,
-            mode=cfg.extractor_mode,
-            conv_bias=cfg.conv_bias,
-        )
-                                    
+        # self.feature_extractor = ConvFeatureExtractionModel(
+        #     conv_layers=feature_enc_layers,
+        #     dropout=0.0,
+        #     mode=cfg.extractor_mode,
+        #     conv_bias=cfg.conv_bias,
+        # )
+        #
         feature_ds_rate = np.prod([s for _, _, s in feature_enc_layers])  #320?
         self.feat2tar_ratio = cfg.label_rate * feature_ds_rate / task_cfg.sample_rate  #
 

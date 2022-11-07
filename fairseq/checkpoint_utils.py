@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 def save_checkpoint(cfg: CheckpointConfig, trainer, epoch_itr, val_loss):
     from fairseq import meters
 
-    # only one worker should attempt to create the required dir 并行的部分！
+    # only one worker should attempt to create the required dir
     if trainer.data_parallel_rank == 0:
         os.makedirs(cfg.save_dir, exist_ok=True)
 
@@ -66,11 +66,11 @@ def save_checkpoint(cfg: CheckpointConfig, trainer, epoch_itr, val_loss):
     def is_better(a, b):
         return a >= b if cfg.maximize_best_checkpoint_metric else a <= b
 
-    suffix = trainer.checkpoint_suffix  #‘’
+    suffix = trainer.checkpoint_suffix
     checkpoint_conds = collections.OrderedDict()
     checkpoint_conds["checkpoint{}{}.pt".format(epoch, suffix)] = (
         end_of_epoch and not cfg.no_epoch_checkpoints and epoch % cfg.save_interval == 0
-    )  #如果是end_of_epoch 就必须卡到按epoch算该存的时候
+    )
     checkpoint_conds["checkpoint_{}_{}{}.pt".format(epoch, updates, suffix)] = (
         not end_of_epoch
         and cfg.save_interval_updates > 0
@@ -80,7 +80,7 @@ def save_checkpoint(cfg: CheckpointConfig, trainer, epoch_itr, val_loss):
         not hasattr(save_checkpoint, "best")
         or is_better(val_loss, save_checkpoint.best)
     )
-    if val_loss is not None and cfg.keep_best_checkpoints > 0:  #keep_best_checkpoints 默认-1
+    if val_loss is not None and cfg.keep_best_checkpoints > 0:
         worst_best = getattr(save_checkpoint, "best", None)
         chkpts = checkpoint_paths(
             cfg.save_dir,
@@ -102,17 +102,17 @@ def save_checkpoint(cfg: CheckpointConfig, trainer, epoch_itr, val_loss):
         ] = worst_best is None or is_better(val_loss, worst_best)
     checkpoint_conds[
         "checkpoint_last{}.pt".format(suffix)
-    ] = not cfg.no_last_checkpoints  #这个是每一轮都该存的
-    #updatecheckpoint_conds: OrderedDict([('checkpoint1.pt', False), ('checkpoint_1_2.pt', True), ('checkpoint_best.pt', True), ('checkpoint_last.pt', True)])
+    ] = not cfg.no_last_checkpoints
+
     extra_state = {"train_iterator": epoch_itr.state_dict(), "val_loss": val_loss}
     if hasattr(save_checkpoint, "best"):
         extra_state.update({"best": save_checkpoint.best})
 
     checkpoints = [
         os.path.join(cfg.save_dir, fn) for fn, cond in checkpoint_conds.items() if cond
-    ] #['/data/ygr/small20/che/checkpoint_1_2.pt', '/data/ygr/small20/che/checkpoint_best.pt', '/data/ygr/small20/che/checkpoint_last.pt']
-    if len(checkpoints) > 0 and trainer.should_save_checkpoint_on_current_rank:  #实际三个都存了 ???
-        trainer.save_checkpoint(checkpoints[0], extra_state)  
+    ]
+    if len(checkpoints) > 0 and trainer.should_save_checkpoint_on_current_rank:
+        trainer.save_checkpoint(checkpoints[0], extra_state)
         for cp in checkpoints[1:]:
             if cfg.write_checkpoints_asynchronously:
                 # TODO[ioPath]: Need to implement a delayed asynchronous
@@ -133,7 +133,7 @@ def save_checkpoint(cfg: CheckpointConfig, trainer, epoch_itr, val_loss):
             )
         )
 
-    if not end_of_epoch and cfg.keep_interval_updates > 0:  #x
+    if not end_of_epoch and cfg.keep_interval_updates > 0:
         # remove old checkpoints; checkpoints are sorted in descending order
         if cfg.keep_interval_updates_pattern == -1:
             checkpoints = checkpoint_paths(
@@ -157,7 +157,7 @@ def save_checkpoint(cfg: CheckpointConfig, trainer, epoch_itr, val_loss):
             elif PathManager.exists(old_chk):
                 PathManager.rm(old_chk)
 
-    if cfg.keep_last_epochs > 0:  #x
+    if cfg.keep_last_epochs > 0:
         # remove old epoch checkpoints; checkpoints are sorted in descending order
         checkpoints = checkpoint_paths(
             cfg.save_dir, pattern=r"checkpoint(\d+){}\.pt".format(suffix)

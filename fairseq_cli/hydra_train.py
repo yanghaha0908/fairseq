@@ -6,7 +6,7 @@
 
 import logging
 import os
-# os.environ["CUDA_VISIBLE_DEVICES"] = "6"
+#os.environ["CUDA_VISIBLE_DEVICES"] = "6"
 import hydra
 import torch
 from hydra.core.hydra_config import HydraConfig
@@ -93,5 +93,4 @@ def cli_main():
     hydra_main()
 
 
-if __name__ == "__main__":
-    cli_main()
+if __name__ == "__main__":    cli_main()

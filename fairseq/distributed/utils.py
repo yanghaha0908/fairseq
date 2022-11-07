@@ -259,7 +259,7 @@ def distributed_init(cfg: FairseqConfig):
                 init_method=cfg.distributed_training.distributed_init_method,
                 world_size=cfg.distributed_training.distributed_world_size,
                 rank=cfg.distributed_training.distributed_rank,
-            )  #等俩线程都执行完这一步（等俩都初始化） 再执行两个后面的
+            )
             logger.info(
                 "initialized host {} as rank {}".format(
                     socket.gethostname(),
@@ -271,7 +271,7 @@ def distributed_init(cfg: FairseqConfig):
             if torch.cuda.is_available():
                 dist.all_reduce(torch.zeros(1).cuda())
 
-        cfg.distributed_training.distributed_rank = torch.distributed.get_rank()  #0
+        cfg.distributed_training.distributed_rank = torch.distributed.get_rank()
     else:
         assert xm.xrt_world_size() == cfg.distributed_training.distributed_world_size
         global _USE_XLA
@@ -280,12 +280,12 @@ def distributed_init(cfg: FairseqConfig):
         cfg.distributed_training.distributed_rank = xm.get_ordinal()
         xm.rendezvous("distributed_init")  # wait for all workers
 
-    if is_master(cfg.distributed_training):  #==0 就算is_master
+    if is_master(cfg.distributed_training):
         logging.getLogger().setLevel(logging.INFO)
     else:
         logging.getLogger().setLevel(logging.WARNING)
 
-    if cfg.common.model_parallel_size > 1:  #x
+    if cfg.common.model_parallel_size > 1:
         try:
             from fairseq.model_parallel.megatron.mpu import (
                 initialize_model_parallel,
@@ -304,7 +304,7 @@ def distributed_init(cfg: FairseqConfig):
         model_part_number = get_model_parallel_rank()
         cfg.checkpoint.checkpoint_suffix += "-model_part-{0}".format(model_part_number)
 
-    if hasattr(cfg, "model") and getattr(cfg.model, "base_layers", 0) > 0: #x
+    if hasattr(cfg, "model") and getattr(cfg.model, "base_layers", 0) > 0:
         cfg.checkpoint.checkpoint_suffix = (
             f"-rank-{cfg.distributed_training.distributed_rank}"
         )
@@ -321,7 +321,7 @@ def distributed_main(i, main, cfg: FairseqConfig, kwargs):
 
     cfg.distributed_training.distributed_rank = distributed_init(cfg)
 
-    after_distributed_init_fn = kwargs.pop("after_distributed_init_fn", None) #None
+    after_distributed_init_fn = kwargs.pop("after_distributed_init_fn", None)
     if after_distributed_init_fn:
         cfg = after_distributed_init_fn(cfg)
 

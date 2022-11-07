@@ -1,0 +1,59 @@
+看ctc解码的时候的finetune:
+
+--config-dir
+examples/hubert/config/finetune
+--config-name
+base_10h
+task.data=/data/ygr/small20
+task.label_dir=/data/ygr/small20
+task.labels=["ltr"]
+dataset.num_workers=6
+dataset.skip_invalid_size_inputs_valid_test=true
+model.w2v_path=/mnt/lustre/sjtu/home/gry10/fairseq/hubert_base_ls960.pt
+model.mask_prob=0.65
+dataset.validate_after_updates=0
+dataset.validate_interval=1
+checkpoint.save_dir=/data/ygr/small20/chel
+distributed_training.distributed_world_size=1
+optimization.update_freq=[8]
+optimization.lr=[0.00003]
+optimization.max_update=50000
+lr_scheduler.warmup_steps=8000
+lr_scheduler.hold_steps=32000
+lr_scheduler.decay_steps=40000
+
+
+fbank pretrain:
+
+--config-dir examples/hubert/config/pretrain
+--config-name hubert_base_librispeech
+task.data=/data/ygr/librispeech/npyfiles
+task.label_dir=/data/ygr/k500
+task.labels=["km"]
+dataset.valid_subset=dev_clean
+model.label_rate=50
+distributed_training.distributed_world_size=1
+optimization.update_freq=[8]
+checkpoint.save_interval=40
+checkpoint.keep_interval_updates=-1
+checkpoint.no_epoch_checkpoints=false
+checkpoint.save_dir=/mnt/lustre/sjtu/home/gry10/fairseq/pretrain_fbank_ck
+dataset.max_tokens=8750
+model._name=hubert_fbank_offline
+task._name=hubert_fbank_pretraining
+task.sample_rate=100
+
+normal pretrain:
+
+--config-dir examples/hubert/config/pretrain
+--config-name hubert_base_librispeech
+task.data=/data/ygr/shu
+task.label_dir=/data/ygr/k500
+task.labels=["km"]
+model.label_rate=50
+distributed_training.distributed_world_size=1
+optimization.update_freq=[8]
+checkpoint.save_interval=40
+checkpoint.keep_interval_updates=-1
+checkpoint.no_epoch_checkpoints=false
+checkpoint.save_dir=/mnt/lustre/sjtu/home/gry10/fairseq/pretrain_ck

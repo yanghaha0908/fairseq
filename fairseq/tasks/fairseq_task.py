@@ -297,7 +297,7 @@ class FairseqTask(object):
             max_tokens=max_tokens,
             max_sentences=max_sentences,
             required_batch_size_multiple=required_batch_size_multiple,
-        )
+        )  #[array([ 1, 16,  8, 19, 13, 12,  5,  7]), array([10,  3, 11, 17,  0, 14,  2,  4]), array([18,  9,  6, 15])]
 
         reuse_dataloader = getattr(self.cfg, "reuse_dataloader", True)  #true
         persistent_workers = getattr(self.cfg, "persistent_workers", False)  #flase

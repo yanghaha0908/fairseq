@@ -5,3 +5,5 @@
 
 from .hubert import *  # noqa
 from .hubert_asr import *  # noqa
+from .hubert_fbank import *  # noqa
+from .hubert_fbank_offline import *  # noqa

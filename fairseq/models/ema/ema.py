@@ -165,7 +165,7 @@ class EMA(object):
                 # Do not decay a model.version pytorch param
                 continue
 
-            if key in self.skip_keys:
+            if key in self.skip_keys:  #！！！！！！！！！！！！！！！！！！
                 ema_param = param.to(dtype=ema_param.dtype).clone()
             else:
                 ema_param.mul_(decay)

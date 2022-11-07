@@ -1,6 +1,5 @@
 export CUDA_VISIBLE_DEVICES=1
 
-
 /mnt/lustre/sjtu/home/gry10/anaconda3/envs/fairseq/bin/python fairseq_cli/hydra_train.py \
 --config-dir examples/hubert/config/finetune \
 --config-name base_10h \
