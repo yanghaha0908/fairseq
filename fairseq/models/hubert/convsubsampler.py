@@ -109,5 +109,5 @@ class Conv1dSubsampler(nn.Module):
             x = conv(x)
             x = nn.functional.glu(x, dim=1)
         _, _, out_seq_len = x.size()
-        x = x.transpose(1, 2).transpose(0, 1).contiguous()  # -> T x B x (C x D)
+        x = x.transpose(1, 2).transpose(0, 1).contiguous()   # -> T x B x (C x D)   #(680,6,512)
         return x, self.get_out_seq_lens_tensor(src_lengths)

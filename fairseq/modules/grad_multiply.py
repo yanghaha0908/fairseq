@@ -16,3 +16,5 @@ class GradMultiply(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad):
         return grad * ctx.scale, None
+
+#Defines a formula for differentiating the operation with backward mode automatic differentiation (alias to the vjp function).

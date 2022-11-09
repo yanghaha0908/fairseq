@@ -242,6 +242,14 @@ class HubertConfig(FairseqDataclass):
     )
     fp16: bool = field(default=False, metadata={"help": "If fp16 is being used"})
 
+    #### downsample layer config
+    #conv_kernel_sizes: str = "5,5"   #40ms frame shift
+    conv_kernel_sizes: str = "5"   #20ms frame shift
+    conv_channels: int = 1024
+    input_feat_per_channel: int = 80
+    input_channels: int = 1
+    fbank_encoder_dim: int = 512
+
 
 @register_model("hubert_fbank_offline", dataclass=HubertConfig)
 class HubertfbankofflineModel(BaseFairseqModel):
@@ -255,7 +263,7 @@ class HubertfbankofflineModel(BaseFairseqModel):
         logger.info(f"HubertfbankofflineModel Config: {cfg}") #change
 
         #feature_enc_layers = eval(cfg.conv_feature_layers)   #[(512, 10, 5), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 2, 2), (512, 2, 2)]  # noqa
-        self.embed = 80 #feature_enc_layers[-1][0] #512  #change
+        self.embed = 512 #80 #feature_enc_layers[-1][0] #512  #change
 
         # self.feature_extractor = ConvFeatureExtractionModel(
         #     conv_layers=feature_enc_layers,
@@ -264,7 +272,7 @@ class HubertfbankofflineModel(BaseFairseqModel):
         #     conv_bias=cfg.conv_bias,
         # )
         #feature_ds_rate = np.prod([s for _, _, s in feature_enc_layers])  #320?
-        self.feat2tar_ratio = 0.5  #cfg.label_rate * feature_ds_rate / task_cfg.sample_rate   #change
+        self.feat2tar_ratio = 1 #0.5   #cfg.label_rate * feature_ds_rate / task_cfg.sample_rate   #change  因为又降采样了
 
         self.post_extract_proj = (   #Linear(in_features=512, out_features=768, bias=True)
             nn.Linear(self.embed, cfg.encoder_embed_dim)
@@ -326,6 +334,14 @@ class HubertfbankofflineModel(BaseFairseqModel):
                 torch.FloatTensor(sum(self.num_classes), final_dim)  #(504,256) 全0
             )
             nn.init.uniform_(self.label_embs_concat)  #使用从均匀分布[0,1]中提取的值填充输入张量。
+
+        # FBank feature extraction
+        from fairseq.models.hubert import Conv1dSubsampler
+        self.subsample = Conv1dSubsampler(
+            cfg.input_feat_per_channel * cfg.input_channels,
+            cfg.conv_channels, cfg.fbank_encoder_dim,
+            [int(k) for k in cfg.conv_kernel_sizes.split(",")] )
+
 
     def upgrade_state_dict_named(self, state_dict, name):
         """Upgrade a (possibly old) state dict for new versions of fairseq."""
@@ -440,15 +456,19 @@ class HubertfbankofflineModel(BaseFairseqModel):
     ) -> Dict[str, torch.Tensor]:
         """output layer is 1-based"""
         # features = self.forward_features(source)   #就是过 ConvFeatureExtractionModel （8，512，477） #source (8,152960)
-        #修改后 source已经是:(6,1359,80) #torch.Size([7, 1143, 80])      #source 是 list：7  （1143，80）
-        features = source.transpose(1, 2)   #（7, 80, 1143)     # （8，477，512）  只是为了跟原来的匹配上  #change 剩下都一样
+        #修改后 source已经是:(6,1359,80)  #torch.Size([7, 1143, 80])      #source 是 list：7  （1143，80）
+        src_lengths=torch.full([source.shape[0]],source.shape[1]) #tensor([1359, 1359, 1359, 1359, 1359, 1359])
+        features, feature_lengths = self.subsample(source, src_lengths=src_lengths)  #(680,6,512)  tensor([680, 680, 680, 680, 680, 680])
+        features = features.transpose(0, 1)  #（6，680，512）
+        features = features.transpose(1, 2)  # (6，512，680） #（7, 80, 1143)     # （8，477，512）  只是为了跟原来的匹配  #change 剩下都一样
+
         if target_list is not None:  #做了！！！！
             features, target_list = self.forward_targets(features, target_list) #features 无变化 target_list（8，477）
 
         #features_pen = features.float().pow(2).mean()  #所有项平方取均值 #0.2904
         features_pen = torch.tensor(0.0,device="cuda")  # 因为fbank不会改变  #change
 
-        features = features.transpose(1, 2)  #(6,1359,80)（8，477，512）
+        features = features.transpose(1, 2)  #(6,680,512) (6,1359,80)（8，477，512）
         features = self.layer_norm(features)
         unmasked_features = features.clone()
 

@@ -178,6 +178,12 @@ class HubertCriterion(FairseqCriterion):
             elif lk.startswith("correct_"):
                 val = sum(log[lk] for log in logging_outputs)
                 metrics.log_scalar(lk, val / counts[re.sub("correct", "count", lk)])
+                
+        #add log  ntokens,nsentences
+        nsentences = sum(log.get("nsentences", 0) for log in logging_outputs)
+        metrics.log_scalar("ntokens", ntokens)
+        metrics.log_scalar("nsentences", nsentences)
+        
 
     @staticmethod
     def aggregate_logging_outputs(logging_outputs):
