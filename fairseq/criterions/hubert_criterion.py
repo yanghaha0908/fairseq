@@ -72,8 +72,8 @@ class HubertCriterion(FairseqCriterion):
             loss_m = F.cross_entropy(logp_m, targ_m, reduction=reduction)
             loss_m_list.append(loss_m)
             logging_output[f"loss_m_{i}"] = loss_m.detach().item()  #{'loss_m_0': 12147.861328125}
-        if self.pred_masked_weight > 0:
-            loss += self.pred_masked_weight * sum(loss_m_list)  #一个batch的m loss
+        if self.pred_masked_weight > 0:  #self.pred_masked_weight=1
+            loss += self.pred_masked_weight * sum(loss_m_list)  #一个batch的m loss!
             sample_size += targ_m_list[0].numel()  #1936
 
         loss_u_list = []
@@ -84,7 +84,7 @@ class HubertCriterion(FairseqCriterion):
             loss_u = F.cross_entropy(logp_u, targ_u, reduction=reduction)
             loss_u_list.append(loss_u)
             logging_output[f"loss_u_{i}"] = loss_u.detach().item()
-        if self.pred_nomask_weight > 0:
+        if self.pred_nomask_weight > 0:   #self.pred_nomask_weight=0 x
             loss += self.pred_nomask_weight * sum(loss_u_list)
             sample_size += targ_u_list[0].numel()
 
@@ -101,8 +101,8 @@ class HubertCriterion(FairseqCriterion):
             ), f"{len(extra_losses)}, {len(self.loss_weights)}"
             for p, n, coef in zip(extra_losses, names, self.loss_weights): #p:0.2904, n='features_pen',coef=10.0
                 if coef != 0 and p is not None:
-                    p = coef * p.float() * sample_size    #1936
-                    loss += p
+                    p = coef * p.float() * sample_size    #1936   #sample_size =0
+                    loss += p   #0
                     logging_output[f"loss_{n}"] = p.item()
 
         logging_output = {
@@ -145,13 +145,15 @@ class HubertCriterion(FairseqCriterion):
     @staticmethod
     def reduce_metrics(logging_outputs) -> None:
         """Aggregate logging outputs from data parallel training (copied from normal cross entropy)."""
-        loss_sum = sum(log.get("loss", 0) for log in logging_outputs)
-        ntokens = sum(log.get("ntokens", 0) for log in logging_outputs)
-        sample_size = sum(log.get("sample_size", 0) for log in logging_outputs)
+        loss_sum = sum(log.get("loss", 0) for log in logging_outputs)  #0
+        ntokens = sum(log.get("ntokens", 0) for log in logging_outputs)  #0
+        sample_size = sum(log.get("sample_size", 0) for log in logging_outputs)  #0
 
-        metrics.log_scalar(
-            "loss", loss_sum / sample_size / math.log(2), sample_size, round=3
-        )
+        if sample_size!=0:
+            metrics.log_scalar(
+                "loss", loss_sum / sample_size / math.log(2), sample_size, round=3
+            )
+
         if sample_size != ntokens:
             metrics.log_scalar(
                 "nll_loss", loss_sum / ntokens / math.log(2), ntokens, round=3
@@ -174,10 +176,13 @@ class HubertCriterion(FairseqCriterion):
         for lk in logging_outputs[0].keys():
             if lk.startswith("loss_"):
                 val = sum(log[lk] for log in logging_outputs)
-                metrics.log_scalar(lk, val / sample_size / math.log(2), round=3)
+                if sample_size!=0:
+                    metrics.log_scalar(lk, val / sample_size / math.log(2), round=3)
             elif lk.startswith("correct_"):
                 val = sum(log[lk] for log in logging_outputs)
-                metrics.log_scalar(lk, val / counts[re.sub("correct", "count", lk)])
+                tmp=counts[re.sub("correct", "count", lk)]
+                if tmp!=0:
+                    metrics.log_scalar(lk, val / tmp)
                 
         #add log  ntokens,nsentences
         nsentences = sum(log.get("nsentences", 0) for log in logging_outputs)

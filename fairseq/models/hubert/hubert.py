@@ -128,6 +128,7 @@ class HubertConfig(FairseqDataclass):
     )
 
     # masking
+    mask: bool = field(default=True, metadata={"help": "apply mask or not"})   #new
     mask_length: int = field(default=10, metadata={"help": "mask length"})
     mask_prob: float = field(
         default=0.65,
@@ -267,6 +268,7 @@ class HubertModel(BaseFairseqModel):
             else None
         )
 
+        self.mask=cfg.mask  # 一般是True, 做实验设为false
         self.mask_prob = cfg.mask_prob  #0.8
         self.mask_selection = cfg.mask_selection #static
         self.mask_other = cfg.mask_other #0
@@ -429,7 +431,7 @@ class HubertModel(BaseFairseqModel):
         source: torch.Tensor,
         target_list: Optional[List[torch.Tensor]] = None,
         padding_mask: Optional[torch.Tensor] = None,
-        mask: bool = True,
+        # mask: bool = True,
         features_only: bool = False,
         output_layer: Optional[int] = None,
     ) -> Dict[str, torch.Tensor]:
@@ -453,11 +455,12 @@ class HubertModel(BaseFairseqModel):
         features = self.dropout_input(features)   #(7,1143,768)
         unmasked_features = self.dropout_features(unmasked_features)
 
-        if mask:
-            x, mask_indices = self.apply_mask(features, padding_mask, target_list) #x mask之后的  #(7,1143)
+        if self.mask:
+            x, mask_indices = self.apply_mask(features, padding_mask, target_list) #x (8,477,768) mask_indices(8,477)
         else:
             x = features
-            mask_indices = None
+            #mask_indices = None   #改成None 根本就不行，看来fairseq代码写的不完善啊！
+            mask_indices = torch.full((x.shape[0], x.shape[1]), False,device="cuda")  #(8,477) 全false
 
         # feature: (B, T, D), float
         # target: (B, T), long

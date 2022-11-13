@@ -146,9 +146,11 @@ None
 finetune
 pretrain_fbank_ck
 pretrain_yinsu_ck
+finetune_fbank
+
 
 
 #sh
-
+*.sh
 
 
