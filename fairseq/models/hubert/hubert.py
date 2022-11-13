@@ -431,7 +431,7 @@ class HubertModel(BaseFairseqModel):
         source: torch.Tensor,
         target_list: Optional[List[torch.Tensor]] = None,
         padding_mask: Optional[torch.Tensor] = None,
-        # mask: bool = True,
+        mask: bool = True,
         features_only: bool = False,
         output_layer: Optional[int] = None,
     ) -> Dict[str, torch.Tensor]:
@@ -542,7 +542,7 @@ class HubertModel(BaseFairseqModel):
             features_only=True,
             output_layer=output_layer,
         )   #dict:3  'x' (8,686,768) 'features' (8,686,768)
-        feature = res["features"] if ret_conv else res["x"]   #ret_conv=false
+        feature = res["features"] if ret_conv else res["x"]   #ret_conv=false   #(8,625,768) 没问题啊
         return feature, res["padding_mask"]
 
     def get_logits(self, net_output, is_masked=True):

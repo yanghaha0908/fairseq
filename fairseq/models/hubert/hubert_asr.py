@@ -404,17 +404,16 @@ class HubertEncoder(FairseqEncoder):
         ft = self.freeze_finetune_updates <= self.num_updates #false
 
         with torch.no_grad() if not ft else contextlib.ExitStack():
-            x, padding_mask = self.w2v_model.extract_features(**w2v_args)  #self.w2v_model 就是HubertModel 过完transformer的
+            x, padding_mask = self.w2v_model.extract_features(**w2v_args)  #self.w2v_model 就是HubertModel 过完transformer的  #学：（8，625，768)
 
             if tbc:
                 # B x T x C -> T x B x C  #686，8，768
-                x = x.transpose(0, 1)
-                x = x.transpose(0, 1)
+                x = x.transpose(0, 1)   #(8,625,768) ??    #莫名其妙写了两遍
 
         x = self.final_dropout(x)
 
         if self.proj:
-            x = self.proj(x)  #686，8，32
+            x = self.proj(x)  #686，8，32    (8,625,32)
 
         return {
             "encoder_out": x,  # T x B x C
