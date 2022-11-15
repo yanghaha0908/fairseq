@@ -97,3 +97,20 @@ checkpoint.keep_interval_updates=-1
 checkpoint.no_epoch_checkpoints=false
 checkpoint.save_dir=/mnt/lustre/sjtu/home/gry10/fairseq/pretrain_ck
 model.mask=false
+criterion.pred_masked_weight=0
+criterion.pred_nomask_weight=1
+
+normal small pretrain:
+
+--config-dir examples/hubert/config/pretrain
+--config-name hubert_base_librispeech
+task.data=/data/ygr/small20
+task.label_dir=/data/ygr/small20
+task.labels=["km"]
+model.label_rate=50
+distributed_training.distributed_world_size=1
+optimization.update_freq=[8]
+checkpoint.save_interval=40
+checkpoint.keep_interval_updates=-1
+checkpoint.no_epoch_checkpoints=false
+checkpoint.save_dir=/data/ygr/small20/che

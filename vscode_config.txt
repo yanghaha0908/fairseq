@@ -1,0 +1,38 @@
+            "args": [
+                "--config-dir",
+                "examples/hubert/config/finetune",
+                "--config-name",
+                "base_10h",
+                "task.data=/data/ygr/small20",
+                "task.label_dir=/data/ygr/small20",
+                "task.labels=[ltr]",
+                "optimization.max_update=20",
+                "checkpoint.save_interval=2",
+                "checkpoint.keep_interval_updates=-1",
+                "checkpoint.no_epoch_checkpoints=false",
+                "checkpoint.save_dir=/data/ygr/small20/che",
+                "dataset.validate_interval=1",
+                "distributed_training.distributed_world_size=1",
+                "model.w2v_path=/mnt/lustre/sjtu/home/gry10/fairseq/hubert_base_ls960.pt",
+                "dataset.validate_after_updates=0"
+            ]
+
+
+            "args": [
+                "--config-dir",
+                "examples/hubert/config/pretrain",
+                "--config-name",
+                "base_10h",
+                "task.data=/data/ygr/small20",
+                "task.label_dir=/data/ygr/small20",
+                "task.labels=[ltr]",
+                "optimization.max_update=20",
+                "checkpoint.save_interval=2",
+                "checkpoint.keep_interval_updates=-1",
+                "checkpoint.no_epoch_checkpoints=false",
+                "checkpoint.save_dir=/data/ygr/small20/che",
+                "dataset.validate_interval=1",
+                "distributed_training.distributed_world_size=1",
+                "model.w2v_path=/mnt/lustre/sjtu/home/gry10/fairseq/hubert_base_ls960.pt",
+                "dataset.validate_after_updates=0"
+            ]

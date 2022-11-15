@@ -84,11 +84,11 @@ class HubertCriterion(FairseqCriterion):
             loss_u = F.cross_entropy(logp_u, targ_u, reduction=reduction)
             loss_u_list.append(loss_u)
             logging_output[f"loss_u_{i}"] = loss_u.detach().item()
-        if self.pred_nomask_weight > 0:   #self.pred_nomask_weight=0 x
-            loss += self.pred_nomask_weight * sum(loss_u_list)
+        if self.pred_nomask_weight > 0:   #self.pred_nomask_weight=0 x  哦哦如果不想要mask 应该把它改成1 把上面的改成0改才对
+            loss += self.pred_nomask_weight * sum(loss_u_list)   # 其实只需要改self.pred_nomask_weight！！！
             sample_size += targ_u_list[0].numel()
 
-        if self.loss_weights is not None:
+        if self.loss_weights is not None:   #self.loss_weights:[10]
             assert hasattr(model, "get_extra_losses")
             extra_losses, names = model.get_extra_losses(net_output) #feature_pen
             if torch.is_tensor(extra_losses): #x
@@ -149,10 +149,9 @@ class HubertCriterion(FairseqCriterion):
         ntokens = sum(log.get("ntokens", 0) for log in logging_outputs)  #0
         sample_size = sum(log.get("sample_size", 0) for log in logging_outputs)  #0
 
-        if sample_size!=0:
-            metrics.log_scalar(
-                "loss", loss_sum / sample_size / math.log(2), sample_size, round=3
-            )
+        metrics.log_scalar(
+            "loss", loss_sum / sample_size / math.log(2), sample_size, round=3
+        )
 
         if sample_size != ntokens:
             metrics.log_scalar(
@@ -176,8 +175,7 @@ class HubertCriterion(FairseqCriterion):
         for lk in logging_outputs[0].keys():
             if lk.startswith("loss_"):
                 val = sum(log[lk] for log in logging_outputs)
-                if sample_size!=0:
-                    metrics.log_scalar(lk, val / sample_size / math.log(2), round=3)
+                metrics.log_scalar(lk, val / sample_size / math.log(2), round=3)
             elif lk.startswith("correct_"):
                 val = sum(log[lk] for log in logging_outputs)
                 tmp=counts[re.sub("correct", "count", lk)]

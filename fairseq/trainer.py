@@ -784,7 +784,7 @@ class Trainer(object):
         self.criterion.train()
         self.zero_grad()
 
-        metrics.log_start_time("train_wall", priority=800, round=0)
+        metrics.log_start_time("train_wall", priority=800, round=2)  #change
 
         # If EMA is enabled through store_ema=True
         # and task.uses_ema is True, pass the EMA model as a keyword
@@ -1093,7 +1093,7 @@ class Trainer(object):
                 weight=0,
             )
 
-        metrics.log_stop_time("train_wall")
+        metrics.log_stop_time("train_wall")   #change
         return logging_output
 
     @metrics.aggregate("valid")
