@@ -330,8 +330,10 @@ def train(
         with metrics.aggregate("train_inner"), torch.autograd.profiler.record_function(
             "train_step-%d" % i
         ):
+            torch.cuda.synchronize()   #test time
             metrics.log_start_time("one_update", priority=800, round=4)
             log_output = trainer.train_step(samples)  #重点！   #samples 是一个list：1 包括一个dict：2 包括 'id':=tensor(19,) 和'net_input'  {dict:1} source :(19,192960)
+            torch.cuda.synchronize()
             metrics.log_stop_time("one_update")
 
 

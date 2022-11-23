@@ -462,10 +462,12 @@ class HubertfbankofflineModel(BaseFairseqModel):
         # features = self.forward_features(source)   #就是过 ConvFeatureExtractionModel （8，512，477） #source (8,152960)
         #修改后 source已经是:(6,1359,80)  #torch.Size([7, 1143, 80])      #source 是 list：7  （1143，80）
 
-        #metrics.log_start_time("fbank", priority=800, round=4)
+        # torch.cuda.synchronize()
+        # metrics.log_start_time("fbank", priority=800, round=4)
         src_lengths=torch.full([source.shape[0]],source.shape[1]) #tensor([1359, 1359, 1359, 1359, 1359, 1359])
         features, feature_lengths = self.subsample(source, src_lengths=src_lengths)  #(680,6,512)  tensor([680, 680, 680, 680, 680, 680])
-        #metrics.log_stop_time("fbank")    #features train_clean_100 (807,5,512)
+        # torch.cuda.synchronize()
+        # metrics.log_stop_time("fbank")    #features train_clean_100 (807,5,512)
 
         features = features.transpose(0, 1)  #（6，680，512）
         features = features.transpose(1, 2)  # (6，512，680） #（7, 80, 1143)     # （8，477，512）  只是为了跟原来的匹配  #change 剩下都一样
@@ -490,9 +492,11 @@ class HubertfbankofflineModel(BaseFairseqModel):
         unmasked_features = self.dropout_features(unmasked_features)
 
         if self.mask:
-            #metrics.log_start_time("apply mask", priority=800, round=4)
+            # torch.cuda.synchronize()
+            # metrics.log_start_time("apply mask", priority=800, round=4)
             x, mask_indices = self.apply_mask(features, padding_mask, target_list) #x mask之后的  #(7,1143)
-            #metrics.log_stop_time("apply mask")
+            # torch.cuda.synchronize()
+            # metrics.log_stop_time("apply mask")
         else:
             x = features
             mask_indices = None
@@ -503,13 +507,15 @@ class HubertfbankofflineModel(BaseFairseqModel):
         # padding_mask: (B, T), bool
         # mask_indices: (B, T), bool
 
-        #metrics.log_start_time("Transformer", priority=800, round=4)
+        # torch.cuda.synchronize()
+        # metrics.log_start_time("Transformer", priority=800, round=4)
         x, _ = self.encoder(
             x,
             padding_mask=padding_mask,
             layer=None if output_layer is None else output_layer - 1,
         )  #transformer encoder  #(8,686,768)
-        #metrics.log_stop_time("Transformer")
+        # torch.cuda.synchronize()
+        # metrics.log_stop_time("Transformer")
 
         if features_only:
             return {"x": x, "padding_mask": padding_mask, "features": features}  #finetune到这步
@@ -528,7 +534,8 @@ class HubertfbankofflineModel(BaseFairseqModel):
 
         label_embs_list = self.label_embs_concat.split(self.num_classes, 0)   #??? tuple 0: (504,256)  self.num_classes[504]
 
-        #metrics.log_start_time("Predict", priority=800, round=4)
+        # torch.cuda.synchronize()
+        # metrics.log_start_time("Predict", priority=800, round=4)
 
         if not self.skip_masked:
             masked_indices = torch.logical_and(~padding_mask, mask_indices)   #就是mask_indices shape是【8，477】 其中true的元素个数是1936
@@ -559,7 +566,8 @@ class HubertfbankofflineModel(BaseFairseqModel):
         else:
             logit_u_list = [None for _ in target_list]
 
-        #metrics.log_stop_time("Predict")
+        # torch.cuda.synchronize()
+        # metrics.log_stop_time("Predict")
 
         result = {
             "logit_m_list": logit_m_list,
