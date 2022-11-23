@@ -181,11 +181,19 @@ class HubertfbankDataset(FairseqDataset):  #change
             f"pad_audio={pad_audio}, random_crop={random_crop}, "
             f"normalize={normalize}, max_sample_size={self.max_sample_size}"
         )
+        
+        # add global cmvn
+        stats_npz_path = "/data/ygr/librispeech/npyfiles/global_cmvn.npy"  #原始路径 /mnt/lustre/sjtu/home/xc915/data/Gigaspeech/gigaspeech-s-rawwav/global_cmvn.npy “两个是一样的”
+        stats = np.load(stats_npz_path, allow_pickle=True).tolist()
+        self.mean, self.std = stats["mean"], stats["std"]  #mean(80,), std(80,)
 
     def get_fbank(self, index):  #change
         wav_path = self.audio_names[index]  #"/data/ygr/librispeech/npyfiles.rank4/train-fbank80/2929-85685-0079.npy"
         fbank = np.load(wav_path, allow_pickle=True)  # {ndarray:2972,80)}
         fbank = torch.from_numpy(fbank).float()  #{Tensor:(2972,80)}
+
+        fbank = np.subtract(fbank, self.mean)  # !!!!!!!!!!!!!!!!!!!!
+        fbank = np.divide(fbank, self.std)  # !!!!!!!!!!!!!!!!!!!!
 
         return fbank
 

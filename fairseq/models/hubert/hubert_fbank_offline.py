@@ -465,7 +465,7 @@ class HubertfbankofflineModel(BaseFairseqModel):
         #metrics.log_start_time("fbank", priority=800, round=4)
         src_lengths=torch.full([source.shape[0]],source.shape[1]) #tensor([1359, 1359, 1359, 1359, 1359, 1359])
         features, feature_lengths = self.subsample(source, src_lengths=src_lengths)  #(680,6,512)  tensor([680, 680, 680, 680, 680, 680])
-        #metrics.log_stop_time("fbank")
+        #metrics.log_stop_time("fbank")    #features train_clean_100 (807,5,512)
 
         features = features.transpose(0, 1)  #（6，680，512）
         features = features.transpose(1, 2)  # (6，512，680） #（7, 80, 1143)     # （8，477，512）  只是为了跟原来的匹配  #change 剩下都一样
