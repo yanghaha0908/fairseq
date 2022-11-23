@@ -42,13 +42,22 @@ def load_fbank(manifest_path, max_keep, min_keep):
                 inds.append(ind)  # 0
                 sizes.append(sz)
     tot = ind + 1   #train:281241 #valid:tot:2703 也是2703  #train:names[list:280531] #valid:names[list:2666] 那几个也是
-    logger.info(
-        (
-            f"max_keep={max_keep}, min_keep={min_keep/160}, "
-            f"loaded {len(names)}, skipped {n_short} short and {n_long} long, "
-            f"longest-loaded={max(sizes)}, shortest-loaded={min(sizes)}"
+    if min_keep==None:
+        logger.info(
+            (
+                f"max_keep={max_keep}, min_keep={min_keep}, "
+                f"loaded {len(names)}, skipped {n_short} short and {n_long} long, "
+                f"longest-loaded={max(sizes)}, shortest-loaded={min(sizes)}"
+            )
         )
-    )  #max_keep=None, min_keep=32000, loaded 2666, skipped 37 short and 0 long, longest-loaded=522320, shortest-loaded=32000
+    else:
+        logger.info(
+            (
+                f"max_keep={max_keep}, min_keep={min_keep/160}, "
+                f"loaded {len(names)}, skipped {n_short} short and {n_long} long, "
+                f"longest-loaded={max(sizes)}, shortest-loaded={min(sizes)}"
+            )
+        )  #max_keep=None, min_keep=32000, loaded 2666, skipped 37 short and 0 long, longest-loaded=522320, shortest-loaded=32000
     return root, names, inds, tot, sizes
 
 

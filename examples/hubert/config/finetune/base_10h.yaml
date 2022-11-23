@@ -28,6 +28,7 @@ task:
   normalize: false  # must be consistent with pre-training
   labels: ["ltr"]
   single_target: true
+  sample_rate: 16000
 
 dataset:
   num_workers: 0

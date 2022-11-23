@@ -338,7 +338,7 @@ class HubertEncoder(FairseqEncoder):
             "feature_grad_mult": cfg.feature_grad_mult,
         }
 
-        if cfg.w2v_args is None:
+        if cfg.w2v_args is None:   #是None
             state = checkpoint_utils.load_checkpoint_to_cpu(cfg.w2v_path, arg_overrides)
             w2v_args = state.get("cfg", None)
             if w2v_args is None:
@@ -364,7 +364,7 @@ class HubertEncoder(FairseqEncoder):
         else:
             pretrain_task.load_state_dict(task.state_dict())
 
-        model = pretrain_task.build_model(w2v_args.model, from_checkpoint=True)
+        model = pretrain_task.build_model(w2v_args.model, from_checkpoint=True) #w2v_args.model: {'_name': 'hubert_fbank_offline', 'label_rate': 50.0, 'extractor_mode': 'default', 'encoder_layers': 12, 'encoder_embed_dim': 768, 'encoder_ffn_embed_dim': 3072, 'encoder_attention_heads': 12, 'activation_fn': 'gelu', 'layer_type': 'transformer', 'dropout': 0.0, 'attention_dropout': 0.0, 'activation_dropout': 0.1, 'encoder_layerdrop': 0.1, 'dropout_input': 0.0, 'dropout_features': 0.1, 'final_dim': 256, 'untie_final_proj': True, 'layer_norm_first': False, 'conv_feature_layers': '[(512,10,5)] + [(512,3,2)] * 4 + [(512,2,2)] * 2', 'conv_bias': False, 'logit_temp': 0.1, 'target_glu': False, 'feature_grad_mult': 0.0, 'mask_length': 10, 'mask_prob': 0.65, 'mask_selection': static, 'mask_other': 0.0, 'no_mask_overlap': False, 'mask_min_space': 1, 'mask_channel_length': 64, 'mask_channel_prob': 0.5, 'mask_channel_selection': static, 'mask_channel_other': 0.0, 'no_mask_channel_overlap': False, 'mask_channel_min_space': 1, 'conv_pos': 128, 'conv_pos_groups': 16, 'latent_temp': [2.0, 0.5, 0.999995], 'skip_masked': False, 'skip_nomask': False, 'checkpoint_activations': False, 'required_seq_len_multiple': 2, 'depthwise_conv_kernel_size': 31, 'attn_type': '', 'pos_enc_type': 'abs', 'fp16': False, 'conv_kernel_sizes': '5', 'conv_channels': 1024, 'input_feat_per_channel': 80, 'input_channels': 1, 'fbank_encoder_dim': 512}
         if state is not None and not cfg.no_pretrained_weights:
             # set strict=False because we omit some modules
             model.load_state_dict(state["model"], strict=False)

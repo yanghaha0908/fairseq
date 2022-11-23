@@ -342,7 +342,7 @@ class HubertfbankModel(BaseFairseqModel):
             self.encoder_embed_dim,
             [int(k) for k in self.conv_kernel_sizes.split(",")] )
 
-        self.linear = torch.nn.Linear(self.encoder_embed_dim, self.encoder_embed_dim)
+        self.linear = torch.nn.Linear(self.encoder_embed_dim, self.encoder_embed_dim)  #这一步的意义是？
         nn.init.xavier_normal_(self.linear.weight)
         nn.init.zeros_(self.linear.bias)
         self.dropout = torch.nn.Dropout(self.dropout)
@@ -443,8 +443,8 @@ class HubertfbankModel(BaseFairseqModel):
                 features = _get_torchaudio_fbank(_waveform, sample_rate, n_mel_bins)
 
                 features = torch.from_numpy(features)  #(1469,80)
-                features = np.subtract(features, self.mean)   #!!!!
-                features = np.divide(features, self.std)
+                features = np.subtract(features, self.mean)   #!!!!!!!!!!!!!!!!!!!!
+                features = np.divide(features, self.std)  #!!!!!!!!!!!!!!!!!!!!
                 features = features.cuda()
 
                 feat_len = features.size(0)  #1469
