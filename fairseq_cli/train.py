@@ -262,12 +262,12 @@ def train(
 ) -> Tuple[List[Optional[float]], bool]:
     """Train the model for one epoch and return validation losses."""
     # Initialize data iterator
-    metrics.log_start_time("prepare_data", priority=800, round=4)
+    #metrics.log_start_time("prepare_data", priority=800, round=4)
     itr = epoch_itr.next_epoch_itr(
         fix_batches_to_gpus=cfg.distributed_training.fix_batches_to_gpus,
         shuffle=(epoch_itr.next_epoch_idx > cfg.dataset.curriculum),
     )
-    metrics.log_stop_time("prepare_data")
+    #metrics.log_stop_time("prepare_data")
 
     update_freq = (
         cfg.optimization.update_freq[epoch_itr.epoch - 1]
@@ -330,11 +330,11 @@ def train(
         with metrics.aggregate("train_inner"), torch.autograd.profiler.record_function(
             "train_step-%d" % i
         ):
-            torch.cuda.synchronize()   #test time
-            metrics.log_start_time("one_update", priority=800, round=4)
+            # torch.cuda.synchronize()   #test time
+            # metrics.log_start_time("one_update", priority=800, round=4)
             log_output = trainer.train_step(samples)  #重点！   #samples 是一个list：1 包括一个dict：2 包括 'id':=tensor(19,) 和'net_input'  {dict:1} source :(19,192960)
-            torch.cuda.synchronize()
-            metrics.log_stop_time("one_update")
+            # torch.cuda.synchronize()
+            # metrics.log_stop_time("one_update")
 
 
         if log_output is not None:  # not OOM, overflow, ...

@@ -508,8 +508,8 @@ class HubertModel(BaseFairseqModel):
         # metrics.log_start_time("Predict", priority=800, round=4)
         if not self.skip_masked:
             masked_indices = torch.logical_and(~padding_mask, mask_indices)   #就是mask_indices shape是【8，477】 其中true的元素个数是1936
-            proj_x_m = self.final_proj(x[masked_indices])  #最终结果:(1936,256)  x[masked_indices].shape   torch.Size([1936, 768])  (768,256)  #(4284,256)
-            if self.untie_final_proj:
+            proj_x_m = self.final_proj(x[masked_indices])  #最终结果:(1936,256)  x[masked_indices].shape   torch.Size([1936, 768])   #self.final_proj:Linear(in_features=768, out_features=256, bias=True)
+            if self.untie_final_proj: #
                 proj_x_m_list = proj_x_m.chunk(len(target_list), dim=-1) #(tuple:1) 0:(1936,256)
             else:
                 proj_x_m_list = [proj_x_m for _ in range(len(target_list))]

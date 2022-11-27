@@ -469,8 +469,8 @@ class HubertfbankModel(BaseFairseqModel):
         # subsampling on fbank features
         #print(fbank_features.shape,fbank_lengths.shape)  #torch.Size([5, 1469, 80]) torch.Size([5])
         fbank_features, encoder_out_lengths = self.subsample(fbank_features, src_lengths=fbank_lengths)  #torch.Size([368, 5, 512])
-        fbank_features = self.linear(fbank_features) #torch.Size([368, 5, 512])
-        fbank_features = self.dropout(fbank_features) #torch.Size([368, 5, 512])
+        fbank_features = self.linear(fbank_features) #torch.Size([368, 5, 512])   #这两步需要做吗？
+        fbank_features = self.dropout(fbank_features) #torch.Size([368, 5, 512])    #在github上data2vec中没做
         return fbank_features, encoder_out_lengths
 
     def forward_features(self, source: torch.Tensor) -> torch.Tensor:

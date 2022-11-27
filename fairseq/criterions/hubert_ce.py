@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from fairseq import metrics, utils
 from fairseq.criterions import FairseqCriterion, register_criterion
 from fairseq.dataclass import FairseqDataclass
-
+import torch.nn as nn
 
 @dataclass
 class HubertCriterionConfig(FairseqDataclass):
@@ -35,21 +35,24 @@ class HubertCriterionConfig(FairseqDataclass):
     )
 
 
-@register_criterion("hubert", dataclass=HubertCriterionConfig)
-class HubertCriterion(FairseqCriterion):
+@register_criterion("hubertce", dataclass=HubertCriterionConfig)
+class HubertCECriterion(FairseqCriterion):
     def __init__(
-        self,
-        task,
-        pred_masked_weight,
-        pred_nomask_weight,
-        loss_weights=None,
-        log_keys=None,
+            self,
+            task,
+            pred_masked_weight,
+            pred_nomask_weight,
+            loss_weights=None,
+            log_keys=None,
     ):
         super().__init__(task)
-        self.pred_masked_weight = pred_masked_weight  #1
-        self.pred_nomask_weight = pred_nomask_weight  #0
-        self.loss_weights = loss_weights  #[10.0]
+        self.pred_masked_weight = pred_masked_weight  # 1
+        self.pred_nomask_weight = pred_nomask_weight  # 0
+        self.loss_weights = loss_weights  # [10.0]
         self.log_keys = [] if log_keys is None else log_keys
+
+        #new
+
 
     def forward(self, model, sample, reduce=True, log_pred=False):
         """Compute the loss for the given sample.
@@ -58,27 +61,27 @@ class HubertCriterion(FairseqCriterion):
         2) the sample size, which is used as the denominator for the gradient
         3) logging outputs to display while training
         """
-        net_output = model(target_list=sample["target_list"], **sample["net_input"]) #logit_m_list 和 logit_u_list
-        loss = 0.0
+        net_output = model(target_list=sample["target_list"], **sample["net_input"])  # logit_m_list 和 logit_u_list
+        loss = 0.0   #（x:8,477,768) ,padding_mask(8,477),features:8,477,768)
         sample_size = 0
         logging_output = {}
         reduction = "sum" if reduce else "none"
 
         loss_m_list = []
-        logp_m_list = model.get_logits(net_output, True) #[(1936,505)]
-        targ_m_list = model.get_targets(net_output, True) #[(1936,)] 全0  scalar的值则是真实类别的index!! 之前存的时候y都是存在第0位 看那个网页 真神奇
+        logp_m_list = model.get_logits(net_output, True) #[(1936,504)]
+        targ_m_list = net_output["targ_m_list"]  #tuple:1 (1936,)
         assert self.pred_masked_weight == 0 or len(logp_m_list) > 0
         for i, (logp_m, targ_m) in enumerate(zip(logp_m_list, targ_m_list)):
-            loss_m = F.cross_entropy(logp_m, targ_m, reduction=reduction)
+            loss_m = F.cross_entropy(logp_m, targ_m, reduction=reduction)  #torch.float32,torch.int64
             loss_m_list.append(loss_m)
-            logging_output[f"loss_m_{i}"] = loss_m.detach().item()  #{'loss_m_0': 12147.861328125}
-        if self.pred_masked_weight > 0:  #self.pred_masked_weight=1
-            loss += self.pred_masked_weight * sum(loss_m_list)  #一个batch的m loss!
-            sample_size += targ_m_list[0].numel()  #1936
+            logging_output[f"loss_m_{i}"] = loss_m.detach().item()  # {'loss_m_0': 12147.861328125}
+        if self.pred_masked_weight > 0:  # self.pred_masked_weight=1
+            loss += self.pred_masked_weight * sum(loss_m_list)  # 一个batch的m loss!
+            sample_size += targ_m_list[0].numel()  # 1936
 
         loss_u_list = []
         logp_u_list = model.get_logits(net_output, False)
-        targ_u_list = model.get_targets(net_output, False)
+        targ_u_list = net_output["targ_u_list"]
         assert self.pred_nomask_weight == 0 or len(logp_u_list) > 0
         for i, (logp_u, targ_u) in enumerate(zip(logp_u_list, targ_u_list)):
             loss_u = F.cross_entropy(logp_u, targ_u, reduction=reduction)
@@ -105,6 +108,9 @@ class HubertCriterion(FairseqCriterion):
                     loss += p   #0
                     logging_output[f"loss_{n}"] = p.item()
 
+
+
+
         logging_output = {
             "loss": loss.item() if reduce else loss,
             "ntokens": sample_size,
@@ -113,30 +119,28 @@ class HubertCriterion(FairseqCriterion):
             **logging_output,
         }
 
-        for lk in self.log_keys:  #x
+        for lk in self.log_keys:  # x
             if lk in net_output:
                 logging_output[lk] = float((net_output[lk]))
 
-        def compute_correct(logits):
+        def compute_correct(logits,targets):   #这块忘了改 但不影响训练
             if logits.numel() == 0:
                 return 0, 0
             else:
                 assert logits.dim() > 1, logits.shape
-                max = logits.argmax(-1) == 0  #(1936,bool)   ( logits.argmax(-1) 是[1936] ，所以是在判断 相似度最大的项是不是和第0项一样，以此来判断是不是选对了，如果对了 那个sample赋值true   #有两个是true
-                min = logits.argmin(-1) == 0 #(1936,)
-                both = max & min
-                corr = max.long().sum().item() - both.long().sum().item() #2 说明1936个time steps中只分类对了2个  max=min 所有项的值都一样也不算分对
-                count = max.numel() #1936
+                max_index = logits.argmax(dim=1)  # 1936
+                corr = (max_index==targets).sum().item() # 3
+                count = len(targets)  # 1936  原来tensor也可以用len 和numel  #numel()函数:返回数组中元素的个数
                 return corr, count
 
         with torch.no_grad():
-            for i, logp_m in enumerate(logp_m_list):
-                corr_m, count_m = compute_correct(logp_m)  #2，1936  1936个time steps中只分类对了2个
+            for logp_m,tar_m in zip(logp_m_list,targ_m_list):
+                corr_m, count_m = compute_correct(logp_m,tar_m)  # 2，1936  1936个time steps中只分类对了2个  好像本来就是int
                 logging_output[f"correct_m_{i}"] = corr_m
                 logging_output[f"count_m_{i}"] = count_m
 
-            for i, logp_u in enumerate(logp_u_list):
-                corr_u, count_u = compute_correct(logp_u)  #5，1880
+            for logp_u,tar_u in zip(logp_u_list,targ_u_list):
+                corr_u, count_u = compute_correct(logp_u,tar_u)  # 5，1880
                 logging_output[f"correct_u_{i}"] = corr_u
                 logging_output[f"count_u_{i}"] = count_u
 
@@ -145,9 +149,9 @@ class HubertCriterion(FairseqCriterion):
     @staticmethod
     def reduce_metrics(logging_outputs) -> None:
         """Aggregate logging outputs from data parallel training (copied from normal cross entropy)."""
-        loss_sum = sum(log.get("loss", 0) for log in logging_outputs)  #0
-        ntokens = sum(log.get("ntokens", 0) for log in logging_outputs)  #0
-        sample_size = sum(log.get("sample_size", 0) for log in logging_outputs)  #0
+        loss_sum = sum(log.get("loss", 0) for log in logging_outputs)  # 0
+        ntokens = sum(log.get("ntokens", 0) for log in logging_outputs)  # 0
+        sample_size = sum(log.get("sample_size", 0) for log in logging_outputs)  # 0
 
         metrics.log_scalar(
             "loss", loss_sum / sample_size / math.log(2), sample_size, round=3
@@ -178,15 +182,14 @@ class HubertCriterion(FairseqCriterion):
                 metrics.log_scalar(lk, val / sample_size / math.log(2), round=3)
             elif lk.startswith("correct_"):
                 val = sum(log[lk] for log in logging_outputs)
-                tmp=counts[re.sub("correct", "count", lk)]
-                if tmp!=0:
+                tmp = counts[re.sub("correct", "count", lk)]
+                if tmp != 0:
                     metrics.log_scalar(lk, val / tmp)
-                
-        #add log  ntokens,nsentences
+
+        # add log  ntokens,nsentences
         nsentences = sum(log.get("nsentences", 0) for log in logging_outputs)
         metrics.log_scalar("ntokens", ntokens)
         metrics.log_scalar("nsentences", nsentences)
-        
 
     @staticmethod
     def aggregate_logging_outputs(logging_outputs):

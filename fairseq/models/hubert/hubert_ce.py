@@ -25,15 +25,10 @@ from fairseq.models.wav2vec.wav2vec2 import (
     TransformerEncoder,
 )
 from fairseq.modules import GradMultiply, LayerNorm
-# from fairseq.tasks.hubert_pretraining import (
-#     HubertPretrainingConfig,
-#     HubertPretrainingTask,
-# )
-
-from fairseq.tasks.hubert_fbank_pretraining import (
+from fairseq.tasks.hubert_pretraining import (
     HubertPretrainingConfig,
-    HubertfbankPretrainingTask,
-)   #change
+    HubertPretrainingTask,
+)
 
 from fairseq.logging import metrics
 
@@ -135,7 +130,7 @@ class HubertConfig(FairseqDataclass):
     )
 
     # masking
-    mask: bool = field(default=True, metadata={"help": "apply mask or not"})  # new
+    mask: bool = field(default=True, metadata={"help": "apply mask or not"})   #new
     mask_length: int = field(default=10, metadata={"help": "mask length"})
     mask_prob: float = field(
         default=0.65,
@@ -245,17 +240,9 @@ class HubertConfig(FairseqDataclass):
     )
     fp16: bool = field(default=False, metadata={"help": "If fp16 is being used"})
 
-    #### downsample layer config
-    #conv_kernel_sizes: str = "5,5"   #40ms frame shift
-    conv_kernel_sizes: str = "5"   #20ms frame shift
-    conv_channels: int = 1024
-    input_feat_per_channel: int = 80
-    input_channels: int = 1
-    fbank_encoder_dim: int = 512
 
-
-@register_model("hubert_fbank_offline", dataclass=HubertConfig)
-class HubertfbankofflineModel(BaseFairseqModel):
+@register_model("hubertce", dataclass=HubertConfig)
+class HubertCEModel(BaseFairseqModel):
     def __init__(
         self,
         cfg: HubertConfig,
@@ -263,19 +250,19 @@ class HubertfbankofflineModel(BaseFairseqModel):
         dictionaries: List[Dictionary],
     ) -> None:
         super().__init__()
-        logger.info(f"HubertfbankofflineModel Config: {cfg}") #change
+        logger.info(f"HubertModel Config: {cfg}")
 
-        #feature_enc_layers = eval(cfg.conv_feature_layers)   #[(512, 10, 5), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 2, 2), (512, 2, 2)]  # noqa
-        self.embed = 512 #80 #feature_enc_layers[-1][0] #512  #change
+        feature_enc_layers = eval(cfg.conv_feature_layers)   #[(512, 10, 5), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 2, 2), (512, 2, 2)]  # noqa
+        self.embed = feature_enc_layers[-1][0] #512
 
-        # self.feature_extractor = ConvFeatureExtractionModel(
-        #     conv_layers=feature_enc_layers,
-        #     dropout=0.0,
-        #     mode=cfg.extractor_mode,
-        #     conv_bias=cfg.conv_bias,
-        # )
-        #feature_ds_rate = np.prod([s for _, _, s in feature_enc_layers])  #320?
-        self.feat2tar_ratio = 1 #0.5   #cfg.label_rate * feature_ds_rate / task_cfg.sample_rate   #change  因为又降采样了
+        self.feature_extractor = ConvFeatureExtractionModel(
+            conv_layers=feature_enc_layers,
+            dropout=0.0,
+            mode=cfg.extractor_mode,
+            conv_bias=cfg.conv_bias,
+        )
+        feature_ds_rate = np.prod([s for _, _, s in feature_enc_layers])  #320?
+        self.feat2tar_ratio = cfg.label_rate * feature_ds_rate / task_cfg.sample_rate
 
         self.post_extract_proj = (   #Linear(in_features=512, out_features=768, bias=True)
             nn.Linear(self.embed, cfg.encoder_embed_dim)
@@ -283,7 +270,7 @@ class HubertfbankofflineModel(BaseFairseqModel):
             else None
         )
 
-        self.mask = cfg.mask  # 一般是True, 做实验设为false
+        self.mask=cfg.mask  # 一般是True, 做实验设为false
         self.mask_prob = cfg.mask_prob  #0.8
         self.mask_selection = cfg.mask_selection #static
         self.mask_other = cfg.mask_other #0
@@ -321,14 +308,6 @@ class HubertfbankofflineModel(BaseFairseqModel):
                 nn.Linear(final_dim, final_dim * 2), nn.GLU()
             )
 
-        self.untie_final_proj = cfg.untie_final_proj #True
-        if self.untie_final_proj:
-            self.final_proj = nn.Linear(
-                cfg.encoder_embed_dim, final_dim * len(dictionaries)  #768, 256*1
-            )
-        else:
-            self.final_proj = nn.Linear(cfg.encoder_embed_dim, final_dim)
-
         # modules below are not needed during fine-tuning
         if any([d is None for d in dictionaries]):
             logger.info("cannot find dictionary. assume will be used for fine-tuning")
@@ -339,18 +318,14 @@ class HubertfbankofflineModel(BaseFairseqModel):
             )
             nn.init.uniform_(self.label_embs_concat)  #使用从均匀分布[0,1]中提取的值填充输入张量。
 
-        # FBank feature extraction
-        from fairseq.models.hubert import Conv1dSubsampler
-        self.subsample = Conv1dSubsampler(
-            cfg.input_feat_per_channel * cfg.input_channels,
-            cfg.conv_channels, cfg.fbank_encoder_dim,
-            [int(k) for k in cfg.conv_kernel_sizes.split(",")] )
-
-        # specaug
-        specaug_config = {"freq_mask_F": 30, "freq_mask_N": 2, "time_mask_N": 2, "time_mask_T": 40, "time_mask_p": 1.0, "time_wrap_W": 0}
-        from fairseq.data.audio.feature_transforms.specaugment import SpecAugmentTransform
-        self.specaug_transform = SpecAugmentTransform.from_config_dict(specaug_config)
-
+        self.untie_final_proj = cfg.untie_final_proj  # True
+        if self.untie_final_proj:
+            self.final_proj = nn.Linear(
+                # cfg.encoder_embed_dim, final_dim * len(dictionaries)  #768, 256*1   #change
+                cfg.encoder_embed_dim, self.num_classes[0] * len(dictionaries)
+            )
+        else:
+            self.final_proj = nn.Linear(cfg.encoder_embed_dim, final_dim)
 
     def upgrade_state_dict_named(self, state_dict, name):
         """Upgrade a (possibly old) state dict for new versions of fairseq."""
@@ -359,10 +334,10 @@ class HubertfbankofflineModel(BaseFairseqModel):
         return state_dict
 
     @classmethod
-    def build_model(cls, cfg: HubertConfig, task: HubertfbankPretrainingTask):
+    def build_model(cls, cfg: HubertConfig, task: HubertPretrainingTask):
         """Build a new model instance."""
 
-        model = HubertfbankofflineModel(cfg, task.cfg, task.dictionaries) #change
+        model = HubertCEModel(cfg, task.cfg, task.dictionaries)
         return model
 
     def apply_mask(self, x, padding_mask, target_list):
@@ -384,7 +359,7 @@ class HubertfbankofflineModel(BaseFairseqModel):
         else:
             mask_indices = None
 
-        if self.mask_channel_prob > 0:   #x
+        if self.mask_channel_prob > 0:   #！！！ pretrain  self.mask_channel_prob=0 ，fine_tune_ mask_channel_prob: 0.5
             mask_channel_indices = compute_mask_indices(
                 (B, C),
                 None,
@@ -394,13 +369,13 @@ class HubertfbankofflineModel(BaseFairseqModel):
                 self.mask_channel_other,
                 no_overlap=self.no_mask_channel_overlap,
                 min_space=self.mask_channel_min_space,
-            )
+            )   #(8,768)
             mask_channel_indices = (
                 torch.from_numpy(mask_channel_indices)
                 .to(x.device)
                 .unsqueeze(1)
                 .expand(-1, T, -1)
-            )
+            )   #(8,625,768)  感觉就是复制了625份  625是时间长度
             x[mask_channel_indices] = 0
 
         return x, mask_indices
@@ -433,7 +408,7 @@ class HubertfbankofflineModel(BaseFairseqModel):
         target_list: List[torch.Tensor],
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         # Trim features to ensure labels exist and then get aligned labels
-        feat_tsz = features.size(2)    #1143  #477 #  (6,80,1359) features （8，512，477）
+        feat_tsz = features.size(2)    #1143  #477 # features （8，512，477）
         targ_tsz = min([t.size(1) for t in target_list])   # 572  #477 # target_list {list:1}
         if self.feat2tar_ratio * feat_tsz > targ_tsz: #x
             feat_tsz = int(targ_tsz / self.feat2tar_ratio)
@@ -464,39 +439,17 @@ class HubertfbankofflineModel(BaseFairseqModel):
         output_layer: Optional[int] = None,
     ) -> Dict[str, torch.Tensor]:
         """output layer is 1-based"""
-        # features = self.forward_features(source)   #就是过 ConvFeatureExtractionModel （8，512，477） #source (8,152960)
-        #修改后 source已经是:(6,1359,80)  #torch.Size([7, 1143, 80])      #source 是 list：7  （1143，80）
-
         # torch.cuda.synchronize()
-        # metrics.log_start_time("fbank", priority=800, round=4)
-        if features_only==True:  # 当finetune的时候 要做 specaug
-            for i in range(source.shape[0]):   #AssertionError: spectrogram must be a 2-D tensor. 所以只能一个个做
-                if i==0:
-                    source_first = source[i,:,:]  #（1614，80）
-                    source_first = self.specaug_transform(source_first)
-                    source_first= source_first.unsqueeze(0)
-                else:
-                    source_tmp=source[i,:,:]
-                    source_tmp = self.specaug_transform(source_tmp)
-                    source_tmp=source_tmp.unsqueeze(0)
-                    source_first=torch.cat((source_first,source_tmp))  #最后(torch.Size([5, 1614, 80])
-
-        source=source_first
-        src_lengths=torch.full([source.shape[0]],source.shape[1]) #tensor([1359, 1359, 1359, 1359, 1359, 1359])
-        features, feature_lengths = self.subsample(source, src_lengths=src_lengths)  #(680,6,512)  tensor([680, 680, 680, 680, 680, 680])
+        # metrics.log_start_time("CNN", priority=800, round=4)
+        features = self.forward_features(source)   #就是过 ConvFeatureExtractionModel （8，512，477） #source (8,152960)
         # torch.cuda.synchronize()
-        # metrics.log_stop_time("fbank")    #features train_clean_100 (807,5,512)
-
-        features = features.transpose(0, 1)  #（6，680，512）
-        features = features.transpose(1, 2)  # (6，512，680） #（7, 80, 1143)     # （8，477，512）  只是为了跟原来的匹配  #change 剩下都一样
-
-        if target_list is not None:  #做了！！！！
+        # metrics.log_stop_time("CNN")
+        if target_list is not None:  #没做
             features, target_list = self.forward_targets(features, target_list) #features 无变化 target_list（8，477）
 
-        #features_pen = features.float().pow(2).mean()  #所有项平方取均值 #0.2904
-        features_pen = torch.tensor(0.0,device="cuda")  # 因为fbank不会改变  #change
+        features_pen = features.float().pow(2).mean()  # 所有项平方取均值 #0.2904
 
-        features = features.transpose(1, 2)  #(6,680,512) (6,1359,80)（8，477，512）
+        features = features.transpose(1, 2)  #（8，477，512）
         features = self.layer_norm(features)
         unmasked_features = features.clone()
 
@@ -507,24 +460,24 @@ class HubertfbankofflineModel(BaseFairseqModel):
             features = self.post_extract_proj(features)   #Linear(in_features=512, out_features=768, bias=True)  （8，477，768）
 
         features = self.dropout_input(features)   #(7,1143,768)
-        unmasked_features = self.dropout_features(unmasked_features)
+        unmasked_features = self.dropout_features(unmasked_features)  #change 没用 算了先不删
 
         if self.mask:
             # torch.cuda.synchronize()
             # metrics.log_start_time("apply mask", priority=800, round=4)
-            x, mask_indices = self.apply_mask(features, padding_mask, target_list) #x mask之后的  #(7,1143)
+            x, mask_indices = self.apply_mask(features, padding_mask, target_list) #x (8,477,768) mask_indices(8,477)
             # torch.cuda.synchronize()
             # metrics.log_stop_time("apply mask")
         else:
             x = features
-            mask_indices = None
+            #mask_indices = None   #改成None 根本就不行，看来fairseq代码写的不完善啊！
+            mask_indices = torch.full((x.shape[0], x.shape[1]), False,device="cuda")  #(8,477) 全false
 
         # feature: (B, T, D), float
         # target: (B, T), long
         # x: (B, T, D), float
         # padding_mask: (B, T), bool
         # mask_indices: (B, T), bool
-
         # torch.cuda.synchronize()
         # metrics.log_start_time("Transformer", priority=800, round=4)
         x, _ = self.encoder(
@@ -550,48 +503,69 @@ class HubertfbankofflineModel(BaseFairseqModel):
             # negs: (Neg, S, D)  负样本！
             return self.compute_nce(proj_x, y, negs)
 
-        label_embs_list = self.label_embs_concat.split(self.num_classes, 0)   #??? tuple 0: (504,256)  self.num_classes[504]
-
+        #label_embs_list = self.label_embs_concat.split(self.num_classes, 0)   #??? tuple 0: (504,256)  self.num_classes[504]
+        #change nouse
         # torch.cuda.synchronize()
         # metrics.log_start_time("Predict", priority=800, round=4)
-
         if not self.skip_masked:
             masked_indices = torch.logical_and(~padding_mask, mask_indices)   #就是mask_indices shape是【8，477】 其中true的元素个数是1936
-            proj_x_m = self.final_proj(x[masked_indices])  #x[masked_indices].shape   torch.Size([1936, 768])  (768,256) 最终结果:(1936,256)  #(4284,256)
-            if self.untie_final_proj:
+            proj_x_m = self.final_proj(x[masked_indices])  #最终结果:(1936,504)  x[masked_indices].shape   torch.Size([1936, 768])   #self.final_proj:Linear(in_features=768, out_features=504, bias=True)
+            proj_x_m /= self.logit_temp   #/tao
+            if self.untie_final_proj: #
                 proj_x_m_list = proj_x_m.chunk(len(target_list), dim=-1) #(tuple:1) 0:(1936,256)
             else:
                 proj_x_m_list = [proj_x_m for _ in range(len(target_list))]
-            logit_m_list = [
-                compute_pred(proj_x_m, t[masked_indices], label_embs_list[i])   #target_list: (8,477)  t[masked_indices].shape[1936] 把mask的位置的label挑出来
-                for i, (proj_x_m, t) in enumerate(zip(proj_x_m_list, target_list))  #i=0
-            ]  #list:1   (1936,505)
+            # logit_m_list = [
+            #     compute_pred(proj_x_m, t[masked_indices], label_embs_list[i])   #target_list: (8,477)  t[masked_indices].shape[1936] 把mask的位置的label挑出来
+            #     for i, (proj_x_m, t) in enumerate(zip(proj_x_m_list, target_list))  #i=0
+            # ]  #list:1   (1936,505)
+            logit_m_list=proj_x_m_list
+
         else:
             logit_m_list = [None for _ in target_list]
 
         if not self.skip_nomask:
             nomask_indices = torch.logical_and(~padding_mask, ~mask_indices)
-            proj_x_u = self.final_proj(x[nomask_indices])
+            proj_x_u = self.final_proj(x[nomask_indices])   #(1880,504)  #x[nomask_indices] torch.Size([1880, 768])
+            proj_x_u /= self.logit_temp
             if self.untie_final_proj:
                 proj_x_u_list = proj_x_u.chunk(len(target_list), dim=-1)
             else:
                 proj_x_u_list = [proj_x_u for _ in range(len(target_list))]
 
-            logit_u_list = [
-                compute_pred(proj_x_u, t[nomask_indices], label_embs_list[i])
-                for i, (proj_x_u, t) in enumerate(zip(proj_x_u_list, target_list))
-            ]  #(1880,505)
+            # logit_u_list = [
+            #     compute_pred(proj_x_u, t[nomask_indices], label_embs_list[i])
+            #     for i, (proj_x_u, t) in enumerate(zip(proj_x_u_list, target_list))
+            # ]  #(1880,505)
+            logit_u_list=proj_x_u_list
         else:
             logit_u_list = [None for _ in target_list]
 
         # torch.cuda.synchronize()
         # metrics.log_stop_time("Predict")
 
+        targ_m_list=target_list[0][masked_indices]  #(1936,)
+        targ_m_list=targ_m_list.long()
+        if self.untie_final_proj:  #
+            targ_m_list = targ_m_list.chunk(len(target_list), dim=-1)  # (tuple:1) 0:(1936,)
+        else:
+            targ_m_list = [targ_m_list for _ in range(len(target_list))]
+
+        targ_u_list=target_list[0][nomask_indices] #（1880,)
+        targ_u_list = targ_u_list.long()
+        if self.untie_final_proj:  #
+            targ_u_list = targ_u_list.chunk(len(target_list), dim=-1)   # (tuple:1) 0:（1880,)
+        else:
+            targ_u_list = [targ_u_list for _ in range(len(target_list))]
+
+
         result = {
             "logit_m_list": logit_m_list,
             "logit_u_list": logit_u_list,
             "padding_mask": padding_mask, #全false
             "features_pen": features_pen,
+            "targ_m_list": targ_m_list,
+            "targ_u_list": targ_u_list,
         }
         return result
 
@@ -610,7 +584,7 @@ class HubertfbankofflineModel(BaseFairseqModel):
             features_only=True,
             output_layer=output_layer,
         )   #dict:3  'x' (8,686,768) 'features' (8,686,768)
-        feature = res["features"] if ret_conv else res["x"]   #ret_conv=false
+        feature = res["features"] if ret_conv else res["x"]   #ret_conv=false   #(8,625,768) 没问题啊
         return feature, res["padding_mask"]
 
     def get_logits(self, net_output, is_masked=True):

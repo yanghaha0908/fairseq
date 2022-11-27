@@ -61,7 +61,7 @@ dataset.num_workers=6
 dataset.skip_invalid_size_inputs_valid_test=true
 dataset.validate_after_updates=0
 dataset.validate_interval=1
-model.w2v_path=/mnt/lustre/sjtu/home/gry10/fairseq/pretrain_fbank_ck/checkpoint20.pt
+model.w2v_path=/mnt/lustre/sjtu/home/gry10/fairseq/pretrain_fbank_cmvn_ck/checkpoint20.pt
 model.mask_prob=0.65
 checkpoint.save_dir=/mnt/lustre/sjtu/home/gry10/fairseq/finetune_fbank/checkpoint/fine20
 distributed_training.distributed_world_size=1
@@ -91,7 +91,7 @@ optimization.update_freq=[8]
 checkpoint.save_interval=40
 checkpoint.keep_interval_updates=-1
 checkpoint.no_epoch_checkpoints=false
-checkpoint.save_dir=/mnt/lustre/sjtu/home/gry10/fairseq/pretrain_fbank_ck
+checkpoint.save_dir=/mnt/lustre/sjtu/home/gry10/fairseq/pretrain_fbank_ck_debug
 dataset.max_tokens=8750
 model._name=hubert_fbank_offline
 task._name=hubert_fbank_pretraining
@@ -110,7 +110,7 @@ optimization.update_freq=[8]
 checkpoint.save_interval=40
 checkpoint.keep_interval_updates=-1
 checkpoint.no_epoch_checkpoints=false
-checkpoint.save_dir=/mnt/lustre/sjtu/home/gry10/fairseq/pretrain_ck
+checkpoint.save_dir=/mnt/lustre/sjtu/home/gry10/fairseq/pretrain_debug_ck
 
 normal pretrain with no mask:
 
@@ -144,3 +144,21 @@ checkpoint.save_interval=40
 checkpoint.keep_interval_updates=-1
 checkpoint.no_epoch_checkpoints=false
 checkpoint.save_dir=/data/ygr/small20/che
+
+
+pretrain new criterion:
+
+--config-dir examples/hubert/config/pretrain
+--config-name hubert_base_librispeech
+task.data=/data/ygr/shu
+task.label_dir=/data/ygr/k500
+task.labels=["km"]
+model.label_rate=50
+distributed_training.distributed_world_size=1
+optimization.update_freq=[8]
+checkpoint.save_interval=40
+checkpoint.keep_interval_updates=-1
+checkpoint.no_epoch_checkpoints=false
+checkpoint.save_dir=/mnt/lustre/sjtu/home/gry10/fairseq/pretrain_debug_ck
+criterion._name=hubertce
+model._name=hubertce
