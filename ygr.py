@@ -1,22 +1,40 @@
 import numpy as np
 import torch
 
+def fake(a):
+    return a+1
 
-source=torch.ones([8,100,80])
+features=[]
+source=torch.ones([4,2,2])
+print(source.shape)
+print(source)
 for i in range(source.shape[0]):
-    if i == 0:
-        source_first = source[i, :, :]  # （1614，80）
-        # source_first = self.specaug_transform(
-        #     source_first)  # AssertionError: spectrogram must be a 2-D tensor. 所以只能一个个做
-        source_first = source_first.unsqueeze(0)
-    else:
-        source_tmp = source[i, :, :]
-        # source_tmp = self.specaug_transform(source_tmp)
-        source_tmp = source_tmp.unsqueeze(0)
-        source_first = torch.cat((source_first, source_tmp))
+    source[i, :, :]=fake(source[i, :, :])
 
-print(source_first.type)
-# print(t1.shape)
+print(source.shape)
+print(source)
+# for i in range(source.shape[0]):
+#     features.append(source[i,:,:])
+# fbank_features_test1 = torch.stack(features, dim=0)
+# print(fbank_features_test1.shape)   #(8,2,2)
+#
+# for i in range(source.shape[0]):
+#     if i == 0:
+#         source_first = source[i, :, :]  # （1614，80）
+#         # source_first = self.specaug_transform(
+#         #     source_first)  # AssertionError: spectrogram must be a 2-D tensor. 所以只能一个个做
+#         source_first = source_first.unsqueeze(0)
+#     else:
+#         source_tmp = source[i, :, :]
+#         # source_tmp = self.specaug_transform(source_tmp)
+#         source_tmp = source_tmp.unsqueeze(0)
+#         source_first = torch.cat((source_first, source_tmp))
+#
+# print(source_first.shape)
+#
+# if ((fbank_features_test1==source_first).all()):
+#     print("same")
+# # print(t1.shape)
 # print(t1)
 # exit(0)
 #

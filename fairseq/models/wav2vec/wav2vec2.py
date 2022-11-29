@@ -889,12 +889,12 @@ class ConvFeatureExtractionModel(nn.Module):
     def forward(self, x):
 
         # BxT -> BxCxT
-        x = x.unsqueeze(1)  #原本是（19，192960） 现在（19，1，192960）
+        x = x.unsqueeze(1)  #原本是（19，192960） 现在（19，1，192960）  x.dtype: torch.float16
 
         for conv in self.conv_layers:
             x = conv(x)   #（19，512，38591） （19，512，19295） （19，512，9647） （19，512，4823） （19，512，2411） （19，512，1205） （19，512，602）
 #(8,1,152960) origin   （8，512，30591），（8，512，15295），（8，512，7647），（8，512，2832），（1911） （955） 477
-        return x
+        return x   #  x.dtype: torch.float16
 
 
 def make_conv_pos(e, k, g):

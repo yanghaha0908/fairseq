@@ -439,7 +439,7 @@ class HubertModel(BaseFairseqModel):
     ) -> Dict[str, torch.Tensor]:
         """output layer is 1-based"""
         # torch.cuda.synchronize()
-        # metrics.log_start_time("CNN", priority=800, round=4)
+        # metrics.log_start_time("CNN", priority=800, round=4)  #source.dtype=16
         features = self.forward_features(source)   #就是过 ConvFeatureExtractionModel （8，512，477） #source (8,152960)
         # torch.cuda.synchronize()
         # metrics.log_stop_time("CNN")

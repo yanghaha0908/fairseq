@@ -179,13 +179,13 @@ class HubertDataset(FairseqDataset):
         wav_path = os.path.join(self.audio_root, self.audio_names[index])  #'/mnt/lustre/sjtu/shared/data/asr/rawdata/LibriSpeech/train-clean-360/2929/85685/2929-85685-0079.flac'
         _path, slice_ptr = parse_path(wav_path) #_path:'/mnt/lustre/sjtu/shared/data/asr/rawdata/LibriSpeech/train-clean-360/2929/85685/2929-85685-0079.flac' #slice_ptr[]
         if len(slice_ptr) == 0:
-            wav, cur_sample_rate = sf.read(_path) #(475760,) 16000
+            wav, cur_sample_rate = sf.read(_path) #(475760,) 16000  #wav:dtype('float64')
         else:
             assert _path.endswith(".zip")
             data = read_from_stored_zip(_path, slice_ptr[0], slice_ptr[1])
             f = io.BytesIO(data)
-            wav, cur_sample_rate = sf.read(f)
-        wav = torch.from_numpy(wav).float()
+            wav, cur_sample_rate = sf.read(f)  # wav  #
+        wav = torch.from_numpy(wav).float()  #torch.float32
         wav = self.postprocess(wav, cur_sample_rate)  #没变
         return wav
 
@@ -228,7 +228,7 @@ class HubertDataset(FairseqDataset):
     def collater(self, samples):
         # target = max(sizes) -> random_crop not used
         # target = max_sample_size -> random_crop used for long
-        samples = [s for s in samples if s["source"] is not None]    #{list:5} 每一个都是{dict:3}   'id':58766 'source':(475760,) label_list={list:1} tensor(1486,)
+        samples = [s for s in samples if s["source"] is not None]   #{list:5} 每一个都是{dict:3}   'id':58766 'source':(475760,) label_list={list:1} tensor(1486,)  #float_32
         if len(samples) == 0:
             return {}
 

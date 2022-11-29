@@ -100,7 +100,7 @@ class Trainer(object):
         if not self.is_fsdp:
             if cfg.common.fp16:  #这个
                 assert not cfg.common.amp, "Cannot use fp16 and AMP together"
-                self._criterion = self._criterion.half()
+                self._criterion = self._criterion.half()  #!!!
                 self._model = self._model.half()
             elif cfg.common.bf16:
                 self._criterion = self._criterion.to(dtype=torch.bfloat16)
@@ -796,7 +796,7 @@ class Trainer(object):
         # forward and backward passwan
         logging_outputs, sample_size, ooms = [], 0, 0
         for i, sample in enumerate(samples): #samples 就list：1 # delayed update loop
-            sample, is_dummy_batch = self._prepare_sample(sample)  #那个dict：2 和 false
+            sample, is_dummy_batch = self._prepare_sample(sample)  #那个dict：2 和 false   #在这里变成了float16
 
             def maybe_no_sync():
                 """
@@ -1288,7 +1288,7 @@ class Trainer(object):
             return t
 
         if self.cfg.common.fp16:
-            sample = utils.apply_to_sample(apply_half, sample)
+            sample = utils.apply_to_sample(apply_half, sample)  # 这里搞完就是float16了
 
         if self.cfg.common.bf16:
             sample = utils.apply_to_sample(apply_bfloat16, sample)
@@ -1329,8 +1329,8 @@ class Trainer(object):
             # the dummy batch may not be on the appropriate device
             sample = utils.move_to_cuda(sample, device=self.device)
 
-        if not self.cfg.common.on_cpu_convert_precision:
-            sample = self._fp_convert_sample(sample)
+        if not self.cfg.common.on_cpu_convert_precision:  #之前还是torch.float32
+            sample = self._fp_convert_sample(sample)  #
 
         if self._dummy_batch == "DUMMY":
             self._dummy_batch = sample

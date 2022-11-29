@@ -59,18 +59,18 @@ def main(cfg: DictConfig, override_args=None):
         overrides = None
 
     # Load ensemble
-    logger.info("loading model(s) from {}".format(cfg.common_eval.path))
+    logger.info("loading model(s) from {}".format(cfg.common_eval.path))  #/mnt/lustre/sjtu/home/gry10/results/pretrain_yinsu_mask/checkpoints/checkpoint_best.pt
     models, saved_cfg, task = checkpoint_utils.load_model_ensemble_and_task(
         [cfg.common_eval.path],
         arg_overrides=overrides,
         suffix=cfg.checkpoint.checkpoint_suffix,
-    )
+    )   #会build model    models:{list:1} HubertModel  task:{HubertPretrainingTask}
     model = models[0]
 
     # Move models to GPU
     for model in models:
         model.eval()
-        if use_fp16:
+        if use_fp16:  #true
             model.half()
         if use_cuda:
             model.cuda()
@@ -79,10 +79,11 @@ def main(cfg: DictConfig, override_args=None):
     logger.info(saved_cfg)
 
     # Build criterion
-    criterion = task.build_criterion(saved_cfg.criterion)
+    criterion = task.build_criterion(saved_cfg.criterion)  #init hubertcriterion
+    # criterion=criterion.half()
     criterion.eval()
 
-    for subset in cfg.dataset.valid_subset.split(","):
+    for subset in cfg.dataset.valid_subset.split(","):  #subset:dev_clean
         try:
             task.load_dataset(subset, combine=False, epoch=1, task_cfg=saved_cfg.task)
             dataset = task.dataset(subset)
@@ -116,7 +117,7 @@ def main(cfg: DictConfig, override_args=None):
 
         log_outputs = []
         for i, sample in enumerate(progress):
-            sample = utils.move_to_cuda(sample) if use_cuda else sample
+            sample = utils.move_to_cuda(sample) if use_cuda else sample   #这少了 trainer.py 799sample, is_dummy_batch = self._prepare_sample(sample) 所以精度不对，干脆都float32吧
             _loss, _sample_size, log_output = task.valid_step(sample, model, criterion)
             progress.log(log_output, step=i)
             log_outputs.append(log_output)

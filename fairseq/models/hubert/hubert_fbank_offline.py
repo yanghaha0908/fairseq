@@ -469,19 +469,23 @@ class HubertfbankofflineModel(BaseFairseqModel):
 
         # torch.cuda.synchronize()
         # metrics.log_start_time("fbank", priority=800, round=4)
-        if features_only==True:  # 当finetune的时候 要做 specaug
-            for i in range(source.shape[0]):   #AssertionError: spectrogram must be a 2-D tensor. 所以只能一个个做
-                if i==0:
-                    source_first = source[i,:,:]  #（1614，80）
-                    source_first = self.specaug_transform(source_first)
-                    source_first= source_first.unsqueeze(0)
-                else:
-                    source_tmp=source[i,:,:]
-                    source_tmp = self.specaug_transform(source_tmp)
-                    source_tmp=source_tmp.unsqueeze(0)
-                    source_first=torch.cat((source_first,source_tmp))  #最后(torch.Size([5, 1614, 80])
+        # if features_only==True:  # 当finetune的时候 要做 specaug
+        #     for i in range(source.shape[0]):   #AssertionError: spectrogram must be a 2-D tensor. 所以只能一个个做
+        #         if i==0:
+        #             source_first = source[i,:,:]  #（1614，80）
+        #             source_first = self.specaug_transform(source_first)
+        #             source_first= source_first.unsqueeze(0)
+        #         else:
+        #             source_tmp=source[i,:,:]
+        #             source_tmp = self.specaug_transform(source_tmp)
+        #             source_tmp=source_tmp.unsqueeze(0)
+        #             source_first=torch.cat((source_first,source_tmp))  #最后(torch.Size([5, 1614, 80])
+        # source=source_first
 
-        source=source_first
+        if features_only == True:  # 当finetune的时候 要做 specaug
+            for i in range(source.shape[0]):
+                source[i, :, :] = self.specaug_transform(source[i, :, :])
+
         src_lengths=torch.full([source.shape[0]],source.shape[1]) #tensor([1359, 1359, 1359, 1359, 1359, 1359])
         features, feature_lengths = self.subsample(source, src_lengths=src_lengths)  #(680,6,512)  tensor([680, 680, 680, 680, 680, 680])
         # torch.cuda.synchronize()

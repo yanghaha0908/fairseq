@@ -158,12 +158,12 @@ class HubertPretrainingTask(FairseqTask):
         return self.cfg.label_dir
 
     def load_dataset(self, split: str, **kwargs) -> None:
-        manifest = f"{self.cfg.data}/{split}.tsv"   #'/data/ygr/shu/train.tsv'  #'/data/ygr/shu/valid.tsv'
+        manifest = f"{self.cfg.data}/{split}.tsv"   #'/data/ygr/data2vec_jt/dev_clean.tsv' '/data/ygr/shu/train.tsv'  #'/data/ygr/shu/valid.tsv'
         dicts = [self.target_dictionary] if self.cfg.fine_tuning else self.dictionaries  #false 所以是 self.dictionaries
         pad_list = [dict.pad() for dict in dicts] #[1]
         eos_list = [dict.eos() for dict in dicts] #[2]
         procs = [LabelEncoder(dict) for dict in dicts]
-        paths = [f"{self.get_label_dir()}/{split}.{l}" for l in self.cfg.labels]  #['/data/ygr/k500/train.km'] #['/data/ygr/k500/valid.km']
+        paths = [f"{self.get_label_dir()}/{split}.{l}" for l in self.cfg.labels] #['/data/ygr/data2vec_jt/dev_clean.phn']  #['/data/ygr/k500/train.km'] #['/data/ygr/k500/valid.km']
 
         # hubert v1: pad_audio=True, random_crop=False;
         self.datasets[split] = HubertDataset(
