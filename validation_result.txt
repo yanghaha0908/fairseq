@@ -12,8 +12,9 @@ ssh://gry10@127.0.0.1:6000/mnt/lustre/sjtu/home/gry10/anaconda3/envs/fairseq/bin
 
 pretrain_yinsu_mask:
 "dev_clean_correct_m_0": "0.67713", "dev_clean_correct_u_0": "0.774373"
-train/correct_m_0:0.75 ,  train/correct_u_0:0.9039
+train/correct_m_0:0.75 ,  train/correct_u_0:0.9039  纯做inference 不要mask
 
+  
 origin
 valid/correct_m_0:0.549, valid/correct_u_0:0.6861
 train/correct_m_0:0.5314 train/correct_u_0:0.7204

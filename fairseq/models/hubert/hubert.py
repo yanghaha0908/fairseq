@@ -460,17 +460,19 @@ class HubertModel(BaseFairseqModel):
 
         features = self.dropout_input(features)   #(7,1143,768)
         unmasked_features = self.dropout_features(unmasked_features)
-
-        if self.mask:
+        # 果然对mask 的理解不正确！！！！！！！ train的时候是mask的 finetune也有train的部分也是mask的 但是 validation 是纯inference的过程 是没有mask的！！！ 我之前的改法不正确 我之前那种改法 永远加了mask  那怎么可能对呢？
+        if mask:
+            #print("Yes mask")
             # torch.cuda.synchronize()
             # metrics.log_start_time("apply mask", priority=800, round=4)
             x, mask_indices = self.apply_mask(features, padding_mask, target_list) #x (8,477,768) mask_indices(8,477)
             # torch.cuda.synchronize()
             # metrics.log_stop_time("apply mask")
         else:
+            #print("No mask")
             x = features
-            #mask_indices = None   #改成None 根本就不行，看来fairseq代码写的不完善啊！
-            mask_indices = torch.full((x.shape[0], x.shape[1]), False,device="cuda")  #(8,477) 全false
+            mask_indices = None   #改成None 根本就不行，看来fairseq代码写的不完善啊！
+            #mask_indices = torch.full((x.shape[0], x.shape[1]), False,device="cuda")  #(8,477) 全false
 
         # feature: (B, T, D), float
         # target: (B, T), long

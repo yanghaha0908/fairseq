@@ -528,7 +528,7 @@ def validate(
                     and i > cfg.dataset.max_valid_steps
                 ):
                     break
-                trainer.valid_step(sample)
+                trainer.valid_step(sample)   #！！
 
         # log validation stats
         # only tracking the best metric on the 1st validation subset

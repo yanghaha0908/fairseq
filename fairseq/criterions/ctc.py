@@ -112,7 +112,7 @@ class CtcCriterion(FairseqCriterion):
         self.sentence_avg = cfg.sentence_avg
 
     def forward(self, model, sample, reduce=True, **kwargs):
-        net_output = model(**sample["net_input"]) #dict:3 'encoder_out'=(686,8,32)
+        net_output = model(**sample["net_input"]) #dict:3 'encoder_out'=(686,8,32)   # model.eval() 之后 model.training 就会变成false！
         lprobs = model.get_normalized_probs(
             net_output, log_probs=True
         ).contiguous()  # (T, B, C) from the encoder  (686,8,32) 过了一个log_softmax

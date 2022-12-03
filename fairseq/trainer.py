@@ -1112,8 +1112,8 @@ class Trainer(object):
             extra_kwargs["ema_model"] = self.ema.get_model()
 
         with torch.no_grad():
-            self.model.eval()
-            self.criterion.eval()
+            self.model.eval()  #！！
+            self.criterion.eval()  #！！
 
             sample, is_dummy_batch = self._prepare_sample(sample)
 
