@@ -471,7 +471,7 @@ class HubertModel(BaseFairseqModel):
         else:
             #print("No mask")
             x = features
-            mask_indices = None   #改成None 根本就不行，看来fairseq代码写的不完善啊！
+            mask_indices = None   #改成None 根本就不行，看来fairseq代码写的不完善啊！  因为原本的pretrain不管是train还是valid都是apply mask的所以不会走到这个分枝 所以做yinsu_nomask 的时候会报错需要修改
             #mask_indices = torch.full((x.shape[0], x.shape[1]), False,device="cuda")  #(8,477) 全false
 
         # feature: (B, T, D), float

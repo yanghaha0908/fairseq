@@ -482,9 +482,9 @@ class HubertfbankofflineModel(BaseFairseqModel):
         #             source_first=torch.cat((source_first,source_tmp))  #最后(torch.Size([5, 1614, 80])
         # source=source_first
 
-        if features_only == True:  # 当finetune的时候 要做 specaug
-            for i in range(source.shape[0]):
-                source[i, :, :] = self.specaug_transform(source[i, :, :])
+        # if self.encoder.training == True:  # 只在finetune 的training part做 specaug  #我觉得就这么改没问题，回头测一下
+        #     for i in range(source.shape[0]):   #但是验证了这个写法和上面复杂的写法是一样的
+        #         source[i, :, :] = self.specaug_transform(source[i, :, :])   #validation的时候不能做
 
         src_lengths=torch.full([source.shape[0]],source.shape[1]) #tensor([1359, 1359, 1359, 1359, 1359, 1359])
         features, feature_lengths = self.subsample(source, src_lengths=src_lengths)  #(680,6,512)  tensor([680, 680, 680, 680, 680, 680])
@@ -513,7 +513,7 @@ class HubertfbankofflineModel(BaseFairseqModel):
         features = self.dropout_input(features)   #(7,1143,768)
         unmasked_features = self.dropout_features(unmasked_features)
 
-        if self.mask:
+        if mask:
             # torch.cuda.synchronize()
             # metrics.log_start_time("apply mask", priority=800, round=4)
             x, mask_indices = self.apply_mask(features, padding_mask, target_list) #x mask之后的  #(7,1143)

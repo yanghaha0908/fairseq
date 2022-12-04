@@ -462,7 +462,7 @@ class HubertCEModel(BaseFairseqModel):
         features = self.dropout_input(features)   #(7,1143,768)
         unmasked_features = self.dropout_features(unmasked_features)  #change 没用 算了先不删
 
-        if self.mask:
+        if mask:
             # torch.cuda.synchronize()
             # metrics.log_start_time("apply mask", priority=800, round=4)
             x, mask_indices = self.apply_mask(features, padding_mask, target_list) #x (8,477,768) mask_indices(8,477)
