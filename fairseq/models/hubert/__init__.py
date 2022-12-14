@@ -8,4 +8,5 @@ from .hubert_asr import *  # noqa
 from .hubert_fbank import *  # noqa
 from .hubert_fbank_offline import *  # noqa
 from .hubert_ce import *  # noqa
+from .hubert_trans import *  # noqa
 from .convsubsampler import *

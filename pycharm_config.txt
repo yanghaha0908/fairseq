@@ -47,22 +47,18 @@ lr_scheduler.decay_steps=40000
 
 fbank finetune:
 
---config-dir
-examples/hubert/config/finetune
---config-name
-base_10h
+--config-dir examples/hubert/config/finetune
+--config-name base_10h
 task.data=/data/ygr/librispeech/npyfiles
 task.label_dir=/data/ygr/k500
 task.labels=["ltr"]
 dataset.train_subset=train_clean_100
 dataset.valid_subset=dev_other
-dataset.num_workers=6
+dataset.num_workers=2
 dataset.skip_invalid_size_inputs_valid_test=true
-dataset.validate_after_updates=0
-dataset.validate_interval=1
-model.w2v_path=/mnt/lustre/sjtu/home/gry10/fairseq/pretrain_fbank_cmvn_ck/checkpoint20.pt
+model.w2v_path=/mnt/lustre/sjtu/home/gry10/results/pretrain_fbank_cmvn/checkpoints/checkpoint20.pt
 model.mask_prob=0.65
-checkpoint.save_dir=/mnt/lustre/sjtu/home/gry10/fairseq/finetune_fbank/checkpoint/fine20
+checkpoint.save_dir=/mnt/lustre/sjtu/home/gry10/fairseq/finetune_fbank/checkpoints/fine20
 distributed_training.distributed_world_size=1
 optimization.update_freq=[8]
 optimization.lr=[0.00003]
@@ -73,6 +69,7 @@ lr_scheduler.decay_steps=40000
 task._name=hubert_fbank_pretraining
 dataset.max_tokens=8750
 task.sample_rate=100
+
 
 
 
@@ -145,6 +142,24 @@ checkpoint.no_epoch_checkpoints=false
 checkpoint.save_dir=/data/ygr/small20/che9
 dataset.validate_interval=1
 
+small newtrans pretrain:
+
+--config-dir examples/hubert/config/pretrain
+--config-name hubert_base_librispeech
+task.data=/data/ygr/small20
+task.label_dir=/data/ygr/small20
+task.labels=["km"]
+model.label_rate=50
+distributed_training.distributed_world_size=1
+optimization.update_freq=[8]
+checkpoint.save_interval=40
+checkpoint.keep_interval_updates=-1
+checkpoint.no_epoch_checkpoints=false
+checkpoint.save_dir=/data/ygr/small20/che9
+dataset.validate_interval=1
+model._name=hubert_trans
+
+
 
 pretrain new criterion:
 
@@ -180,4 +195,63 @@ checkpoint.save_interval=5
 checkpoint.keep_interval_updates=-1
 checkpoint.no_epoch_checkpoints=false
 checkpoint.save_dir=/mnt/lustre/sjtu/home/gry10/fairseq/yinsu_validate_ck
+
+pycharm decode
+
+python examples/speech_recognition/new/infer.py
+
+--config-dir examples/hubert/config/decode
+--config-name infer_kenlm
+task.data=/data/ygr/librispeech/resource
+task.normalize=false
+dataset.gen_subset=dev_clean
+decoding.lmweight=2
+decoding.wordscore=-1
+decoding.silweight=0
+decoding.beam=1500
+common_eval.path=/mnt/lustre/sjtu/home/gry10/results/finetune_yinsu_nomask/checkpoint/fine140/checkpoint_best.pt
+common_eval.results_path=decode_test/dev_clean/4-gram
+decoding.lexicon=/mnt/lustre/sjtu/home/gry10/fairseq/data/librispeech_lexicon.lst
+decoding.lmpath=/mnt/lustre/sjtu/home/gry10/fairseq/data/4-gram.bin
+distributed_training.distributed_world_size=1
+
+pycharm decode origin
+
+--config-dir examples/hubert/config/decode
+--config-name infer_kenlm
+task.data=/data/ygr/librispeech/resource
+task.normalize=false
+dataset.gen_subset=dev_clean
+decoding.lmweight=2
+decoding.wordscore=-1
+decoding.silweight=0
+decoding.beam=1500
+common_eval.path=/mnt/lustre/sjtu/home/gry10/results/finetune/checkpoint/finebest/checkpoint_best.pt
+common_eval.results_path=decode_test/dev_clean/4-gram
+common_eval.quiet=true
+decoding.lexicon=/mnt/lustre/sjtu/home/gry10/fairseq/data/librispeech_lexicon.lst
+decoding.lmpath=/mnt/lustre/sjtu/home/gry10/fairseq/data/4-gram.bin
+distributed_training.distributed_world_size=1
+
+
+pycharm decode fbank
+
+--config-dir examples/hubert/config/decode
+--config-name infer_kenlm
+task.data=/data/ygr/librispeech/npyfiles
+task.normalize=false
+dataset.gen_subset=dev_clean
+decoding.lmweight=2
+decoding.wordscore=-1
+decoding.silweight=0
+decoding.beam=1500
+common_eval.path=/mnt/lustre/sjtu/home/gry10/results/finetune_fbank_final/checkpoints/fine220/checkpoint_best.pt
+common_eval.results_path=decode_test/dev_clean/4-gram
+common_eval.quiet=true
+decoding.lexicon=/mnt/lustre/sjtu/home/gry10/fairseq/data/librispeech_lexicon.lst
+decoding.lmpath=/mnt/lustre/sjtu/home/gry10/fairseq/data/4-gram.bin
+distributed_training.distributed_world_size=1
+task._name=hubert_fbank_pretraining
+dataset.num_workers=0
+
 

@@ -34,7 +34,7 @@ class BaseDecoder:
         encoder_input = {
             k: v for k, v in sample["net_input"].items() if k != "prev_output_tokens"
         }
-        emissions = self.get_emissions(models, encoder_input)
+        emissions = self.get_emissions(models, encoder_input)  #(2,1624,32) 就是过完transformer的特征
         return self.decode(emissions)
 
     def get_emissions(
@@ -43,9 +43,9 @@ class BaseDecoder:
         encoder_input: Dict[str, Any],
     ) -> torch.FloatTensor:
         model = models[0]
-        encoder_out = model(**encoder_input)
+        encoder_out = model(**encoder_input)   #dict:3 'encoder_out'(1624,2,32),'encoder_padding_mask':(2,1624),'padding_mask'(2,1624)
         if hasattr(model, "get_logits"):
-            emissions = model.get_logits(encoder_out)
+            emissions = model.get_logits(encoder_out)  #没变!
         else:
             emissions = model.get_normalized_probs(encoder_out, log_probs=True)
         return emissions.transpose(0, 1).float().cpu().contiguous()

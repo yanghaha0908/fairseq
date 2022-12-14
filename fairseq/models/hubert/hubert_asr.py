@@ -339,7 +339,7 @@ class HubertEncoder(FairseqEncoder):
         }
 
         if cfg.w2v_args is None:   #是None
-            state = checkpoint_utils.load_checkpoint_to_cpu(cfg.w2v_path, arg_overrides)
+            state = checkpoint_utils.load_checkpoint_to_cpu(cfg.w2v_path, arg_overrides) #到这里就变成了/mnt/lustre
             w2v_args = state.get("cfg", None)
             if w2v_args is None:
                 w2v_args = convert_namespace_to_omegaconf(state["args"])
@@ -413,7 +413,7 @@ class HubertEncoder(FairseqEncoder):
         x = self.final_dropout(x)
 
         if self.proj:
-            x = self.proj(x)  #686，8，32    (8,625,32)
+            x = self.proj(x)  #686，8，32    (8,625,32)  #(1624,2,32)
 
         return {
             "encoder_out": x,  # T x B x C

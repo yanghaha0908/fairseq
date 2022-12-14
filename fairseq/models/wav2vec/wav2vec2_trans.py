@@ -27,6 +27,7 @@ from fairseq.modules import (
     RelPositionalEncoding,
     SamePad,
     TransposeLast,
+    CosformerAttention,   #new
 )
 from fairseq.modules.checkpoint_activations import checkpoint_wrapper
 from fairseq.modules.conformer_layer import ConformerWav2Vec2EncoderLayer
@@ -290,7 +291,7 @@ class Wav2Vec2Config(FairseqDataclass):
     fp16: bool = field(default=False, metadata={"help": "If fp16 is being used"})
 
 
-@register_model("wav2vec2", dataclass=Wav2Vec2Config)
+@register_model("wav2vec2_trans", dataclass=Wav2Vec2Config)
 class Wav2Vec2Model(BaseFairseqModel):
     def __init__(self, cfg: Wav2Vec2Config):
         super().__init__()
@@ -1198,12 +1199,13 @@ class TransformerSentenceEncoderLayer(nn.Module):
 
         # Initialize blocks
         self.activation_fn = utils.get_activation_fn(activation_fn)
-        self.self_attn = MultiheadAttention(  #调torch的库
-            self.embedding_dim,
-            num_attention_heads,
-            dropout=attention_dropout,
-            self_attention=True,
-        )
+        # self.self_attn = MultiheadAttention(  #调torch的库
+        #     self.embedding_dim,
+        #     num_attention_heads,
+        #     dropout=attention_dropout,
+        #     self_attention=True,
+        # )
+        self.self_attn = CosformerAttention(embed_dim=self.embedding_dim, num_heads=num_attention_heads, causal=False)  #change
 
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(self.activation_dropout)
@@ -1232,6 +1234,7 @@ class TransformerSentenceEncoderLayer(nn.Module):
         modules similar to the original Transformer imlementation.
         """
         residual = x    #跳到这里！
+        #print("wav2vec_trans! attention!")
 
         if self.layer_norm_first:
             x = self.self_attn_layer_norm(x)
@@ -1242,7 +1245,7 @@ class TransformerSentenceEncoderLayer(nn.Module):
                 key_padding_mask=self_attn_padding_mask,
                 attn_mask=self_attn_mask,
                 need_weights=False,
-            )  #!!!!
+            )
             x = self.dropout1(x)
             x = residual + x
 
@@ -1256,13 +1259,16 @@ class TransformerSentenceEncoderLayer(nn.Module):
             x = self.dropout3(x)
             x = residual + x
         else:  #做这个
-            x, attn = self.self_attn(
-                query=x,
-                key=x,
-                value=x,
-                key_padding_mask=self_attn_padding_mask,
-                need_weights=False,
-            )  #attn=NONE
+            # x, attn = self.self_attn(
+            #     query=x,
+            #     key=x,
+            #     value=x,
+            #     key_padding_mask=self_attn_padding_mask,
+            #     need_weights=False,
+            # )  #attn=None
+            # x (736,5,768)
+            x= self.self_attn(query=x, key=x, value=x)   #change  #(736,5,768)
+            attn=None
 
             x = self.dropout1(x)
             x = residual + x

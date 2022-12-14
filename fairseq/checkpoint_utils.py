@@ -469,7 +469,7 @@ def load_model_ensemble_and_task(
                 # support old external tasks
 
                 argspec = inspect.getfullargspec(task.build_model)
-                if "from_checkpoint" in argspec.args:
+                if "from_checkpoint" in argspec.args:  #
                     model = task.build_model(cfg.model, from_checkpoint=True)
                 else:
                     model = task.build_model(cfg.model)

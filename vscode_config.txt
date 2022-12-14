@@ -36,3 +36,86 @@
                 "model.w2v_path=/mnt/lustre/sjtu/home/gry10/fairseq/hubert_base_ls960.pt",
                 "dataset.validate_after_updates=0"
             ]
+
+    hubert pretrain nomask
+
+                "args": [
+                "--config-dir",
+                "examples/hubert/config/pretrain",
+                "--config-name",
+                "hubert_base_librispeech",
+                "task.data=/data/ygr/shu",
+                "task.label_dir=/data/ygr/k500",
+                "task.labels=[km]",
+                "model.label_rate=50",
+                "distributed_training.distributed_world_size=4",
+                "optimization.update_freq=[8]",
+                "checkpoint.save_interval=5",
+                "checkpoint.keep_interval_updates=-1",
+                "checkpoint.no_epoch_checkpoints=false",
+                "checkpoint.save_dir=/mnt/lustre/sjtu/home/gry10/fairseq/pretrain_nomask_ck",
+                "common.wandb_project="hubert",
+                "model.mask=false",
+                "criterion.pred_masked_weight=0",
+                "criterion.pred_nomask_weight=1",
+            ]
+
+
+pycharm decode
+
+python examples/speech_recognition/new/infer.py
+--config-dir examples/hubert/config/decode
+--config-name infer_kenlm
+task.data=/home/ygr/resource
+task.normalize=false
+dataset.gen_subset=dev_clean
+decoding.lmweight=2 decoding.wordscore=-1 decoding.silweight=0
+decoding.beam=1500
+common_eval.path=/home/ygr/results/finetune_yinsu_nomask/checkpoint/fine140/checkpoint_best.pt
+common_eval.results_path=decode_yinsu_nomask/dev_clean/4-gram
+decoding.lexicon=/home/ygr/fairseq/data/librispeech_lexicon.lst
+decoding.lmpath=/home/ygr/fairseq/data/4-gram.bin
+distributed_training.distributed_world_size=1
+
+
+        "args": [
+                "--config-dir",
+                "examples/hubert/config/decode",
+                "--config-name",
+                "infer_kenlm",
+                "task.data=/data/ygr/librispeech/resource",
+                "task.normalize=false",
+                "dataset.gen_subset=dev_clean",
+                "decoding.lmweight=2",
+                "decoding.wordscore=-1",
+                "decoding.silweight=0",
+                "decoding.beam=1500",
+                "common_eval.path=/mnt/lustre/sjtu/home/gry10/results/finetune_yinsu_nomask/checkpoint/fine140/checkpoint_best.pt",
+                "common_eval.results_path=decode_yinsu_nomask/dev_clean/4-gram",
+                "decoding.lexicon=/mnt/lustre/sjtu/home/gry10/fairseq/data/librispeech_lexicon.lst",
+                "decoding.lmpath=/mnt/lustre/sjtu/home/gry10/fairseq/data/4-gram.bin",
+                "distributed_training.distributed_world_size=1",
+            ]
+
+decode fbank
+
+        "args": [
+                "--config-dir",
+                "examples/hubert/config/decode",
+                "--config-name",
+                "infer_kenlm",
+                "task.data=/data/ygr/librispeech/npyfiles",
+                "task.normalize=false",
+                "task._name=hubert_fbank_pretraining",
+                "dataset.num_workers=0",
+                "dataset.gen_subset=dev_clean",
+                "decoding.lmweight=2",
+                "decoding.wordscore=-1",
+                "decoding.silweight=0",
+                "decoding.beam=1500",
+                "common_eval.path=/mnt/lustre/sjtu/home/gry10/results/finetune_fbank_final/checkpoints/fine220/checkpoint_best.pt",
+                "common_eval.results_path=decode_fbank/dev_clean/4-gram",
+                "decoding.lexicon=/mnt/lustre/sjtu/home/gry10/fairseq/data/librispeech_lexicon.lst",
+                "decoding.lmpath=/mnt/lustre/sjtu/home/gry10/fairseq/data/4-gram.bin",
+                "distributed_training.distributed_world_size=1",
+            ]

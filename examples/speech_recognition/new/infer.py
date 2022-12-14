@@ -98,9 +98,9 @@ class InferenceProcessor:
 
     def __init__(self, cfg: InferConfig) -> None:
         self.cfg = cfg
-        self.task = tasks.setup_task(cfg.task)
+        self.task = tasks.setup_task(cfg.task)  #没啥问题
 
-        models, saved_cfg = self.load_model_ensemble()
+        models, saved_cfg = self.load_model_ensemble()  #
         self.models = models
         self.saved_cfg = saved_cfg
         self.tgt_dict = self.task.target_dictionary
@@ -108,7 +108,7 @@ class InferenceProcessor:
         self.task.load_dataset(
             self.cfg.dataset.gen_subset,
             task_cfg=saved_cfg.task,
-        )
+        )  #
         self.generator = Decoder(cfg.decoding, self.tgt_dict)
         self.gen_timer = StopwatchMeter()
         self.wps_meter = TimeMeter()
@@ -270,20 +270,20 @@ class InferenceProcessor:
         if "target_label" in sample:
             toks = sample["target_label"]
         else:
-            toks = sample["target"]
-        toks = toks[batch_id, :]
+            toks = sample["target"]  #(2,516)
+        toks = toks[batch_id, :]  #(516)
 
         # Processes hypothesis.
-        hyp_pieces = self.tgt_dict.string(hypo["tokens"].int().cpu())
-        if "words" in hypo:
-            hyp_words = " ".join(hypo["words"])
+        hyp_pieces = self.tgt_dict.string(hypo["tokens"].int().cpu())  #  #tgt_dict 长度是32   4+28  那个txt里是28个 {'<s>': 0, '<pad>': 1, '</s>': 2, '<unk>': 3, '|': 4, 'E': 5, 'T': 6, 'A': 7, 'O': 8, 'N': 9, 'I': 10, 'H': 11, 'S': 12, 'R': 13, 'D': 14, 'L': 15, 'U': 16, 'M': 17, 'W': 18, 'C': 19, 'F': 20, 'G': 21, 'Y': 22, 'P': 23, 'B': 24, 'V': 25, 'K': 26, "'": 27, 'X': 28, 'J': 29, 'Q': 30, 'Z': 31}
+        if "words" in hypo:  # hyp_pieces ： | A T | T H I S | T U R N I N G | P O I N T | O F | H I S T O R Y | T H E I R | M A N I F E S T | T H E M S E L V E S | S I D E | B Y | S I D E | A N D | O F T E N | M I X E D | A N D | E N T A N G L E D | T O G E T H E R | A | M A G N I F I C E N T | M A N I F O L D | V I R G I N | F O R E S T | L I K E | U P G R O W T H | A N D | U P | S T R I V I N G | A | K I N D | O F | T R O P I C A L | T E M P O | I N | T H E | R I V A L R Y | O F | G R O W T H | A N D | A N | E X T R A O R D I N A R Y | D E C A Y | A N D | S E L F | D E S T R U C T I O N | O W I N G | T O | T H E | S A V A G E L Y | O P P O S I N G | A N D | S E E M I N G L Y | E X P L O D I N G | E G O I S M S | W H I C H | S T R I V E | W I T H | O N E | A N O T H E R | F O R | S U N | A N D | L I G H T | A N D | C A N | N O | L O N G E R | A S S I G N | A N Y | L I M I T | R E S T R A I N T | O R | F O R B E A R A N C E | F O R | T H E M S E L V E S | B Y | M E A N S | O F | T H E | H I T H E R T O | E X I S T I N G | M O R A L I T Y | |
+            hyp_words = " ".join(hypo["words"]) #AT THIS TURNING POINT OF HISTORY THEIR MANIFEST THEMSELVES SIDE BY SIDE AND OFTEN MIXED AND ENTANGLED TOGETHER A MAGNIFICENT MANIFOLD VIRGIN FOREST LIKE UPGROWTH AND UP STRIVING A KIND OF TROPICAL TEMPO IN THE RIVALRY OF GROWTH AND AN EXTRAORDINARY DECAY AND SELF DESTRUCTION OWING TO THE SAVAGELY OPPOSING AND SEEMINGLY EXPLODING EGOISMS WHICH STRIVE WITH ONE ANOTHER FOR SUN AND LIGHT AND CAN NO LONGER ASSIGN ANY LIMIT RESTRAINT OR FORBEARANCE FOR THEMSELVES BY MEANS OF THE HITHERTO EXISTING MORALITY
         else:
             hyp_words = post_process(hyp_pieces, self.cfg.common_eval.post_process)
 
         # Processes target.
-        target_tokens = utils.strip_pad(toks, self.tgt_dict.pad())
-        tgt_pieces = self.tgt_dict.string(target_tokens.int().cpu())
-        tgt_words = post_process(tgt_pieces, self.cfg.common_eval.post_process)
+        target_tokens = utils.strip_pad(toks, self.tgt_dict.pad())  #（506，) 数字
+        tgt_pieces = self.tgt_dict.string(target_tokens.int().cpu())  #A T | T H I S | T U R N I N G | P O I N T | O F | H I S T O R Y | T H E R E | M A N I F E S T | T H E M S E L V E S | S I D E | B Y | S I D E | A N D | O F T E N | M I X E D | A N D | E N T A N G L E D | T O G E T H E R | A | M A G N I F I C E N T | M A N I F O L D | V I R G I N | F O R E S T | L I K E | U P | G R O W T H | A N D | U P | S T R I V I N G | A | K I N D | O F | T R O P I C A L | T E M P O | I N | T H E | R I V A L R Y | O F | G R O W T H | A N D | A N | E X T R A O R D I N A R Y | D E C A Y | A N D | S E L F | D E S T R U C T I O N | O W I N G | T O | T H E | S A V A G E L Y | O P P O S I N G | A N D | S E E M I N G L Y | E X P L O D I N G | E G O I S M S | W H I C H | S T R I V E | W I T H | O N E | A N O T H E R | F O R | S U N | A N D | L I G H T | A N D | C A N | N O | L O N G E R | A S S I G N | A N Y | L I M I T | R E S T R A I N T | O R | F O R B E A R A N C E | F O R | T H E M S E L V E S | B Y | M E A N S | O F | T H E | H I T H E R T O | E X I S T I N G | M O R A L I T Y |
+        tgt_words = post_process(tgt_pieces, self.cfg.common_eval.post_process)  #结果：AT THIS TURNING POINT OF HISTORY THERE MANIFEST THEMSELVES SIDE BY SIDE AND OFTEN MIXED AND ENTANGLED TOGETHER A MAGNIFICENT MANIFOLD VIRGIN FOREST LIKE UP GROWTH AND UP STRIVING A KIND OF TROPICAL TEMPO IN THE RIVALRY OF GROWTH AND AN EXTRAORDINARY DECAY AND SELF DESTRUCTION OWING TO THE SAVAGELY OPPOSING AND SEEMINGLY EXPLODING EGOISMS WHICH STRIVE WITH ONE ANOTHER FOR SUN AND LIGHT AND CAN NO LONGER ASSIGN ANY LIMIT RESTRAINT OR FORBEARANCE FOR THEMSELVES BY MEANS OF THE HITHERTO EXISTING MORALITY    sentence = sentence.replace(" ", "").replace("|", " ").strip()
 
         if self.cfg.decoding.results_path is not None:
             print(f"{hyp_pieces} ({speaker}-{sid})", file=self.hypo_units_file)
@@ -307,7 +307,7 @@ class InferenceProcessor:
             models=self.models,
             sample=sample,
         )
-        num_generated_tokens = sum(len(h[0]["tokens"]) for h in hypos)
+        num_generated_tokens = sum(len(h[0]["tokens"]) for h in hypos) #1025
         self.gen_timer.stop(num_generated_tokens)
         self.wps_meter.update(num_generated_tokens)
 
@@ -380,9 +380,9 @@ def main(cfg: InferConfig) -> float:
 
     logger.info(cfg.common_eval.path)
 
-    with InferenceProcessor(cfg) as processor:
+    with InferenceProcessor(cfg) as processor:   #InferenceProcessor() 有setup_task load_model load dataset等
         for sample in processor:
-            processor.process_sample(sample)
+            processor.process_sample(sample)     #sample{dict:5} 'id' 'net_input' dict
 
         processor.log_generation_time()
 

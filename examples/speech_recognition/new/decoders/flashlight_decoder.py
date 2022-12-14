@@ -143,19 +143,19 @@ class KenLMDecoder(BaseDecoder):
         self,
         emissions: torch.FloatTensor,
     ) -> List[List[Dict[str, torch.LongTensor]]]:
-        B, T, N = emissions.size()
-        hypos = []
+        B, T, N = emissions.size()  #2，32，1624   #336,32,603
+        hypos = []  # list 我猜里面的words 是解码出来的
         for b in range(B):
-            emissions_ptr = emissions.data_ptr() + 4 * b * emissions.stride(0)
-            results = self.decoder.decode(emissions_ptr, T, N)
-
-            nbest_results = results[: self.nbest]
+            emissions_ptr = emissions.data_ptr() + 4 * b * emissions.stride(0) #93835366019456  # 为什么一次跳4个 这块确实不太懂 指针 Tensor.data_ptr() Returns the address of the first element of self tensor.
+            results = self.decoder.decode(emissions_ptr, T, N)    #stride is the jump necessary to go from one element to the next one in the specified dimension dim.  所以emissions.stride(0)=1624*32=51968
+            #库函数 list:595  <flashlight.lib.text.flashlight_lib_text_decoder.DecodeResult object at 0x7fa66d20c7f0>
+            nbest_results = results[: self.nbest]  #{list:1} #self.nbest=1
             hypos.append(
                 [
                     {
-                        "tokens": self.get_tokens(result.tokens),
+                        "tokens": self.get_tokens(result.tokens),   #(1626)  我感觉是每个t的解码结果
                         "score": result.score,
-                        "timesteps": self.get_timesteps(result.tokens),
+                        "timesteps": self.get_timesteps(result.tokens),   # list:507
                         "words": [
                             self.word_dict.get_entry(x) for x in result.words if x >= 0
                         ],
@@ -163,7 +163,7 @@ class KenLMDecoder(BaseDecoder):
                     for result in nbest_results
                 ]
             )
-        return hypos
+        return hypos   #{list:2}
 
 
 FairseqLMState = namedtuple(

@@ -500,7 +500,7 @@ class MultiheadAttention(nn.Module):
 
         is_tpu = query.device.type == "xla"
 
-        tgt_len, bsz, embed_dim = query.size()
+        tgt_len, bsz, embed_dim = query.size() #736,5,768
         src_len = tgt_len
         if not self.skip_embed_dim_check:
             assert (
@@ -531,9 +531,9 @@ class MultiheadAttention(nn.Module):
 
             if self.use_xformers:
                 return self._xformers_attn_forward(
+
                     query, key, value, key_padding_mask, need_weights, attn_mask
                 )
-
             else:  #做这个
                 return F.multi_head_attention_forward(
                     query,
